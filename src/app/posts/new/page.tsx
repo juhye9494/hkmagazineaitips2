@@ -23,12 +23,26 @@ import {
 
 const CATEGORIES = ['전체', '문서작성', '디자인', '멀티미디어', '개발', '마케팅', '데이터분석', '고객관리', '기타']
 
+const AI_TOOLS_LIST = [
+  { name: 'ChatGPT', keywords: ['G', '챗', '지피티', 'GPT', 'chatgpt'] },
+  { name: 'Claude', keywords: ['C', '클로드', '쿨', 'claude'] },
+  { name: 'Gemini', keywords: ['G', '제미나이', '구글', 'gemini'] },
+  { name: 'Midjourney', keywords: ['M', '미드저니', '그림', 'midjourney'] },
+  { name: 'Stable Diffusion', keywords: ['S', '스테이블', '스태이블', 'stable'] },
+  { name: 'DALL-E', keywords: ['D', '달리', 'dalle'] },
+  { name: 'Perplexity', keywords: ['P', '퍼플렉시티', 'perplexity'] },
+  { name: 'Notion AI', keywords: ['N', '노션', 'notion'] },
+  { name: 'Sora', keywords: ['소라', 'sora'] },
+  { name: 'Firefly', keywords: ['파이어플라이', 'fly'] },
+  { name: 'Canva', keywords: ['캔바', 'canva'] }
+]
+
 interface Step {
   title: string;
   content: string;
-  image_url: string;
-  image_file?: File | null;
-  preview_url?: string;
+  image_urls: string[];
+  image_files?: File[];
+  preview_urls?: string[];
 }
 
 export default function NewPostPage() {
@@ -47,9 +61,14 @@ export default function NewPostPage() {
   const [featuredPreview, setFeaturedPreview] = useState<string>('')
   
   // Structured Content States
-  const [steps, setSteps] = useState<Step[]>([{ title: '', content: '', image_url: '' }])
+  const [steps, setSteps] = useState<Step[]>([{ title: '', content: '', image_urls: [] }])
   const [tips, setTips] = useState<string[]>([''])
   const [tools, setTools] = useState<string[]>([''])
+  const [links, setLinks] = useState<string[]>([''])
+
+  // Suggestion States
+  const [activeToolSuggestIdx, setActiveToolSuggestIdx] = useState<number | null>(null)
+  const [filteredTools, setFilteredTools] = useState<string[]>([])
   
   const [isLoading, setIsLoading] = useState(false)
   const [readingTime, setReadingTime] = useState(0)
@@ -74,7 +93,7 @@ export default function NewPostPage() {
   }, [title, description, steps])
 
   // Handlers for dynamic arrays
-  const addStep = () => setSteps([...steps, { title: '', content: '', image_url: '' }])
+  const addStep = () => setSteps([...steps, { title: '', content: '', image_urls: [] }])
   const removeStep = (index: number) => {
     if (steps.length > 1) {
       const newSteps = steps.filter((_, i) => i !== index)
@@ -83,15 +102,29 @@ export default function NewPostPage() {
   }
   const updateStep = (index: number, field: keyof Step, value: any) => {
     const newSteps = [...steps]
-    if (field === 'image_file') {
-      const file = value as File
-      if (file) {
-        const preview = URL.createObjectURL(file)
-        newSteps[index] = { ...newSteps[index], image_file: file, preview_url: preview }
+    const step = { ...newSteps[index] }
+
+    if (field === 'image_files') {
+      const files = Array.from(value as FileList)
+      if (files.length > 0) {
+        const newPreviews = files.map(f => URL.createObjectURL(f))
+        step.image_files = [...(step.image_files || []), ...files]
+        step.preview_urls = [...(step.preview_urls || []), ...newPreviews]
       }
-    } else {
-      newSteps[index] = { ...newSteps[index], [field]: value }
+    } else if (field === 'title' || field === 'content') {
+      step[field] = value as string
     }
+    
+    newSteps[index] = step
+    setSteps(newSteps)
+  }
+
+  const removeStepImage = (stepIdx: number, imgIdx: number) => {
+    const newSteps = [...steps]
+    const step = { ...newSteps[stepIdx] }
+    step.image_files = step.image_files?.filter((_, i) => i !== imgIdx)
+    step.preview_urls = step.preview_urls?.filter((_, i) => i !== imgIdx)
+    newSteps[stepIdx] = step
     setSteps(newSteps)
   }
 
@@ -117,6 +150,35 @@ export default function NewPostPage() {
     const newTools = [...tools]
     newTools[index] = value
     setTools(newTools)
+
+    // AI 도구 추천 필터링
+    if (value.trim()) {
+      const suggestions = AI_TOOLS_LIST.filter(tool => 
+        tool.name.toLowerCase().includes(value.toLowerCase()) ||
+        tool.keywords.some(kw => kw.toLowerCase().includes(value.toLowerCase()))
+      ).map(t => t.name)
+      setFilteredTools(suggestions)
+      setActiveToolSuggestIdx(index)
+    } else {
+      setFilteredTools([])
+      setActiveToolSuggestIdx(null)
+    }
+  }
+
+  const selectToolSuggestion = (index: number, toolName: string) => {
+    const newTools = [...tools]
+    newTools[index] = toolName
+    setTools(newTools)
+    setFilteredTools([])
+    setActiveToolSuggestIdx(null)
+  }
+
+  const addLink = () => setLinks([...links, ''])
+  const removeLink = (index: number) => setLinks(links.filter((_, i) => i !== index))
+  const updateLink = (index: number, value: string) => {
+    const newLinks = [...links]
+    newLinks[index] = value
+    setLinks(newLinks)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,16 +196,20 @@ export default function NewPostPage() {
         featured_image_url = await uploadImage(featuredImage)
       }
 
-      // 2. Step Images Upload
+      // 2. Step Images Upload (Multi)
       const finalSteps = await Promise.all(steps.map(async (step) => {
-        let step_image_url = ''
-        if (step.image_file) {
-          step_image_url = await uploadImage(step.image_file)
+        const uploadedUrls = []
+        if (step.image_files && step.image_files.length > 0) {
+          for (const file of step.image_files) {
+            const url = await uploadImage(file)
+            uploadedUrls.push(url)
+          }
         }
         return {
           title: step.title,
           content: step.content,
-          image_url: step_image_url
+          image_urls: uploadedUrls,
+          image_url: uploadedUrls[0] || '' // Backward compatibility
         }
       }))
 
@@ -159,6 +225,7 @@ export default function NewPostPage() {
         steps: finalSteps,
         tips: tips.filter(t => t.trim()),
         tools: tools.filter(t => t.trim()),
+        links: links.filter(l => l.trim()),
         user_id: user.id,
         content: description // fallback
       })
@@ -292,85 +359,86 @@ export default function NewPostPage() {
           </div>
         </section>
 
-        {/* Dynamic Steps Section */}
-        <section className="space-y-8">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-2xl font-black text-gray-900 flex items-center gap-4">
-              <div className="w-10 h-10 bg-blue-600 rounded-[1.2rem] flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                <ChevronRight className="w-6 h-6" />
-              </div>
-              단계별 상세 가이드
-            </h2>
-            <button 
-              onClick={addStep}
-              className="flex items-center gap-2 text-sm font-black text-blue-600 bg-blue-50 px-6 py-3 rounded-2xl hover:bg-blue-100 transition-all active:scale-95"
-            >
-              <Plus className="w-5 h-5" /> 단계 추가
-            </button>
-          </div>
-          
-          <div className="space-y-10">
-            {steps.map((step, index) => (
-              <div key={index} className="bg-white rounded-[3rem] p-10 md:p-14 shadow-xl shadow-blue-900/5 relative overflow-hidden group animate-in zoom-in-95 duration-500 border border-transparent hover:border-blue-100 transition-colors">
-                <div className="absolute top-0 left-0 w-16 h-16 bg-blue-50 rounded-br-3xl flex items-center justify-center font-black text-blue-600 text-xl">
-                  {index + 1}
-                </div>
-                
-                <button 
-                  onClick={() => removeStep(index)}
-                  className="absolute top-8 right-8 text-gray-300 hover:text-red-500 transition-colors bg-gray-50 p-2 rounded-xl"
-                  title="단계 삭제"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                   <div className="lg:col-span-7 space-y-6">
-                      <input
-                        type="text"
+        {/* Section 4: Step-by-Step Guide */}
+        <section className="space-y-10">
+           <div className="flex items-center justify-between">
+             <h2 className="text-2xl font-black flex items-center gap-4">
+               <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-600/20">
+                 <ChevronRight className="w-6 h-6" />
+               </div>
+               단계별 상세 가이드
+             </h2>
+           </div>
+
+           <div className="space-y-8">
+             {steps.map((step, index) => (
+               <div key={index} className="bg-white rounded-[3rem] p-10 shadow-xl shadow-blue-900/5 border border-gray-100 relative group animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="absolute -left-4 -top-4 w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl shadow-sm border-4 border-white z-10">
+                    {index + 1}
+                  </div>
+                  
+                  <button onClick={() => removeStep(index)} className="absolute right-8 top-8 p-2 text-gray-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                    <X className="w-6 h-6" />
+                  </button>
+
+                  <div className="space-y-8">
+                    {/* Text Inputs */}
+                    <div className="space-y-6">
+                      <input 
                         value={step.title}
                         onChange={(e) => updateStep(index, 'title', e.target.value)}
-                        placeholder="이 단계에서 수행할 핵심 내용을 작성하세요"
-                        className="w-full bg-transparent border-none text-2xl font-black focus:ring-0 placeholder:text-gray-200"
+                        className="w-full text-2xl font-black placeholder:text-gray-200 border-none focus:ring-0 p-0"
+                        placeholder="이 단계에서 수행할 핵심 내용을 작성해 주세요"
                       />
-                      <textarea
+                      <textarea 
                         value={step.content}
                         onChange={(e) => updateStep(index, 'content', e.target.value)}
-                        rows={5}
+                        className="w-full text-lg font-medium text-gray-500 placeholder:text-gray-200 border-none focus:ring-0 p-0 min-h-[120px] resize-none"
                         placeholder="상세한 조작 방법이나 노하우를 공유해 주세요. (예: 어떤 버튼을 클릭해야 하는지, 입력할 프롬프트는 무엇인지 등)"
-                        className="w-full bg-transparent border-none focus:ring-0 font-medium text-gray-600 leading-relaxed placeholder:text-gray-200 resize-none"
                       />
-                   </div>
-                   
-                   <div className="lg:col-span-5">
-                      <label className="relative block h-full min-h-[220px] bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-100 hover:border-blue-300 transition-all cursor-pointer overflow-hidden group/img">
-                         <input 
+                    </div>
+
+                    {/* Multi Image Upload UI */}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {step.preview_urls?.map((url, imgIdx) => (
+                          <div key={imgIdx} className="relative aspect-video rounded-2xl overflow-hidden border-2 border-gray-50 group/img">
+                            <img src={url} alt="Step preview" className="w-full h-full object-cover" />
+                            <button 
+                              onClick={() => removeStepImage(index, imgIdx)}
+                              className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover/img:opacity-100 transition-opacity"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        
+                        <label className="flex flex-col items-center justify-center aspect-video rounded-2xl border-2 border-dashed border-gray-100 bg-gray-50/50 hover:bg-gray-50 hover:border-blue-200 transition-all cursor-pointer group/upload">
+                          <input 
                             type="file" 
-                            accept="image/*" 
-                            onChange={(e) => updateStep(index, 'image_file', e.target.files?.[0])} 
+                            multiple
                             className="hidden" 
-                         />
-                         {step.preview_url ? (
-                           <>
-                             <img src={step.preview_url} alt="Step Preview" className="w-full h-full object-cover" />
-                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                <span className="text-white font-black text-sm">이미지 교체</span>
-                             </div>
-                           </>
-                         ) : (
-                           <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300">
-                              <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-3">
-                                 <Upload className="w-6 h-6 text-blue-600" />
-                              </div>
-                              <span className="text-xs font-black uppercase tracking-widest text-gray-400">사진 추가</span>
-                           </div>
-                         )}
-                      </label>
-                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                            accept="image/*"
+                            onChange={(e) => updateStep(index, 'image_files', e.target.files)}
+                          />
+                          <Upload className="w-6 h-6 text-gray-300 group-hover/upload:text-blue-400 mb-2 transition-colors" />
+                          <span className="text-xs font-bold text-gray-400 group-hover/upload:text-blue-500">사진 추가</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+               </div>
+             ))}
+
+             {/* Add Step Button Moved to Bottom */}
+             <button 
+               onClick={addStep} 
+               className="w-full py-6 bg-white rounded-[2rem] border-2 border-dashed border-gray-100 text-gray-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-3 group"
+             >
+               <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
+               <span className="font-black text-lg">새로운 단계 추가하기</span>
+             </button>
+           </div>
         </section>
 
         {/* Section 4: Tips & Tools */}
@@ -408,19 +476,76 @@ export default function NewPostPage() {
               </div>
               <div className="space-y-4">
                 {tools.map((tool, i) => (
-                  <div key={i} className="flex gap-3 group">
-                     <input 
-                      value={tool}
-                      onChange={(e) => updateTool(i, e.target.value)}
-                      className="flex-1 h-12 px-5 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-4 focus:ring-purple-100 transition-all"
-                      placeholder="도구 이름(예: Chat GPT)"
-                     />
+                  <div key={i} className="flex gap-3 group relative">
+                     <div className="flex-1 relative">
+                        <input 
+                          value={tool}
+                          onChange={(e) => updateTool(i, e.target.value)}
+                          onFocus={() => {
+                            if (tool.trim()) updateTool(i, tool)
+                          }}
+                          className="w-full h-12 px-5 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-4 focus:ring-purple-100 transition-all"
+                          placeholder="도구 이름(예: Chat GPT)"
+                        />
+                        
+                        {/* Suggestion Dropdown */}
+                        {activeToolSuggestIdx === i && filteredTools.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[60] overflow-hidden py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                             {filteredTools.map((suggestion) => (
+                               <button
+                                 key={suggestion}
+                                 onClick={() => selectToolSuggestion(i, suggestion)}
+                                 className="w-full px-5 py-3 text-left text-sm font-bold text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors flex items-center justify-between group/item"
+                               >
+                                 {suggestion}
+                                 <Plus className="w-4 h-4 opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                               </button>
+                             ))}
+                          </div>
+                        )}
+                     </div>
                      <button onClick={() => removeTool(i)} className="text-gray-200 hover:text-red-400 transition-colors"><X className="w-5 h-5"/></button>
                   </div>
                 ))}
               </div>
            </section>
         </div>
+
+        {/* Section 5: Reference Links */}
+        <section className="bg-white rounded-[3rem] p-12 shadow-xl shadow-blue-900/5 border border-gray-100">
+           <div className="flex items-center justify-between mb-10">
+             <h2 className="text-xl font-black flex items-center gap-3">
+               <div className="w-2 h-6 bg-green-500 rounded-full" />
+               참고 링크 (도움되는 URL)
+             </h2>
+             <button onClick={addLink} className="p-3 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-all">
+               <Plus className="w-5 h-5" />
+             </button>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             {links.map((link, i) => (
+               <div key={i} className="flex gap-3 group">
+                  <div className="flex-1 relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                       <Tag className="w-4 h-4" />
+                    </div>
+                    <input 
+                      value={link}
+                      onChange={(e) => updateLink(i, e.target.value)}
+                      className="w-full h-12 pl-11 pr-5 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-4 focus:ring-green-100 transition-all"
+                      placeholder="https://example.com"
+                    />
+                  </div>
+                  <button onClick={() => removeLink(i)} className="text-gray-200 hover:text-red-400 transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+               </div>
+             ))}
+           </div>
+           {links.length === 0 && (
+             <p className="text-center text-gray-400 py-4 text-sm font-medium">참고할만한 웹사이트나 문서 링크를 추가해 보세요.</p>
+           )}
+        </section>
 
         {/* Bottom Action Footer */}
         <div className="max-w-2xl mx-auto pt-10 pb-20 text-center space-y-8 animate-in fade-in slide-in-from-bottom-8">
@@ -439,7 +564,7 @@ export default function NewPostPage() {
                className="w-full py-6 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-black rounded-[2rem] transition-all shadow-2xl shadow-blue-500/30 flex items-center justify-center gap-4 active:scale-95 transform"
              >
                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
-               {isLoading ? '나만의 가이드 저장 중...' : '가이드 성황리에 공유하기'}
+               {isLoading ? '나만의 가이드 저장 중...' : '가이드 공유하기'}
              </button>
              <p className="text-gray-400 font-medium text-sm">
                공유된 가이드는 즉시 플랫폼에 노출되어 동료들에게 큰 도움이 됩니다.
