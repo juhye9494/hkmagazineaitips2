@@ -39,11 +39,13 @@ export function SearchModal({ open, onOpenChange }: { open: boolean, onOpenChang
       const keywords = expandSearchTerm(query);
       const searchConditions = keywords.map(k => `title.ilike.%${k}%`).join(',');
       const contentConditions = keywords.map(k => `content.ilike.%${k}%`).join(',');
+      const descConditions = keywords.map(k => `description.ilike.%${k}%`).join(',');
+      const toolConditions = keywords.map(k => `tools::text.ilike.%${k}%`).join(',');
 
       const { data } = await supabase
         .from('posts')
         .select('*')
-        .or(`${searchConditions},${contentConditions}`)
+        .or(`${searchConditions},${contentConditions},${descConditions},${toolConditions}`)
         .limit(5);
 
       setResults(data || []);
