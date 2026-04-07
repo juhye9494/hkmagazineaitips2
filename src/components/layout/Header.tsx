@@ -49,23 +49,24 @@ export default function Header() {
   return (
     <>
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/50">
-        <nav className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex-1 text-sm font-semibold text-gray-500">
-             {/* 로그인 버튼 또는 사용자 정보 */}
+        <nav className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between gap-4">
+          {/* 좌측: 로그인 버튼 */}
+          <div className="flex-1 flex justify-start items-center">
              <LoginButton />
           </div>
           
-          <Link href="/" className="flex-[2] text-center text-xl font-bold tracking-tight text-[#111827]">
-            한경매거진앤북 <span className="text-[#0056FF]">AI 업무 활용TIP</span>
-          </Link>
-
-          <div className="flex-1 flex justify-end items-center gap-4">
+          {/* 중앙: 가이드 작성 버튼 */}
+          <div className="flex-1 flex justify-center items-center">
             <button 
               onClick={handleCreateGuide}
-              className="hidden md:block px-6 py-2.5 bg-[#0056FF] text-white text-sm font-semibold rounded-full hover:bg-[#0046CC] transition-all shadow-lg shadow-blue-500/20"
+              className="px-6 py-2.5 bg-[#0056FF] text-white text-sm font-semibold rounded-full hover:bg-[#0046CC] transition-all shadow-lg shadow-blue-500/20 whitespace-nowrap"
             >
               나만의 가이드 공유하기
             </button>
+          </div>
+
+          {/* 우측: 검색 버튼 */}
+          <div className="flex-1 flex justify-end items-center">
             <button 
               onClick={() => setIsSearchOpen(true)}
               className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
