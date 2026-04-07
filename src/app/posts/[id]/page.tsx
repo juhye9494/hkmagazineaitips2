@@ -175,8 +175,10 @@ export default function PostDetailPage({
           parent_id: parentId
         })
         .select().single()
+      if (error) throw error
       if (data) {
-        setComments([data, ...comments])
+        // 즉시 상태 업데이트 (기존 댓글 목록에 추가)
+        setComments(prev => [data, ...prev])
         if (parentId) {
           setReplyContent('')
           setReplyToId(null)
@@ -184,7 +186,10 @@ export default function PostDetailPage({
           setNewComment('')
         }
       }
-    } catch (err: any) { alert(err.message) }
+    } catch (err: any) { 
+      console.error('댓글 등록 에러:', err)
+      alert(`댓글 등록에 실패했습니다: ${err.message || '알 수 없는 오류'}\n(혹시 SQL 마이그레이션을 실행하셨나요?)`) 
+    }
     finally { setIsSubmitting(false) }
   }
 
@@ -456,10 +461,13 @@ export default function PostDetailPage({
                      </div>
                      <div className="flex items-center gap-2">
                         <button 
-                          onClick={() => setReplyToId(replyToId === comment.id ? null : comment.id)}
-                          className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${replyToId === comment.id ? 'bg-blue-600 text-white' : 'text-blue-600 hover:bg-blue-50'}`}
+                          onClick={() => {
+                            setReplyToId(comment.id)
+                            setReplyContent('')
+                          }}
+                          className="px-4 py-2 rounded-xl text-xs font-black text-blue-600 hover:bg-blue-50 transition-all"
                         >
-                          {replyToId === comment.id ? '취소' : '답글 달기'}
+                          답글 달기
                         </button>
                         {user && comment.user_id === user.id && (
                           <button onClick={() => handleDeleteComment(comment.id)} className="p-3 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-5 h-5" /></button>
@@ -469,7 +477,7 @@ export default function PostDetailPage({
                   {editingCommentId === comment.id ? (
                     <div className="space-y-3">
                       <textarea value={editingContent} onChange={(e) => setEditingContent(e.target.value)} className="w-full p-4 bg-gray-50 border-blue-100 border rounded-2xl focus:ring-2 focus:ring-blue-500 font-medium" rows={2} />
-                      <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2">
                          <button onClick={() => setEditingCommentId(null)} className="text-sm font-bold text-gray-400">취소</button>
                          <button onClick={() => handleUpdateComment(comment.id)} className="text-sm font-bold text-blue-600">저장</button>
                       </div>
@@ -494,7 +502,14 @@ export default function PostDetailPage({
                         className="w-full p-6 bg-white border border-blue-100 rounded-2xl focus:ring-4 focus:ring-blue-100 outline-none font-bold text-md resize-none shadow-sm"
                         rows={2}
                       />
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-3">
+                        <button 
+                          type="button"
+                          onClick={() => setReplyToId(null)}
+                          className="px-6 py-3 bg-white text-gray-400 font-black rounded-xl hover:bg-gray-100 transition-all text-sm border border-gray-100"
+                        >
+                          취소
+                        </button>
                         <button disabled={isSubmitting} className="px-8 py-3 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/10 active:scale-95 text-sm">
                           {isSubmitting ? '전송 중...' : '답글 등록'}
                         </button>

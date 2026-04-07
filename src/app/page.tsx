@@ -104,7 +104,7 @@ export default function Home() {
             한경매거진앤북<br />
             <span className="text-[#0056FF] drop-shadow-sm">AI 업무 활용 TIP</span>
           </h2>
-          <p className="text-xl text-gray-400 mb-14 font-bold max-w-2xl mx-auto">
+          <p className="text-xl text-gray-400 mb-14 max-w-2xl mx-auto">
             실제로 검증된 실무 효율 극대화 가이드.<br />
             나만의 노하우를 공유하고 팀원들의 팁을 확인하세요.
           </p>
@@ -119,7 +119,7 @@ export default function Home() {
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-7 h-7 text-[#0056FF]" />
           </div>
 
-          <div className="flex flex-wrap justify-center gap-8 text-xs font-black text-gray-300 uppercase tracking-widest">
+          <div className="flex flex-wrap justify-center gap-8 text-xs font-black text-gray-500 uppercase tracking-widest">
               <span className="flex items-center gap-3"><span className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.8)]"></span> 실무 활용법</span>
               <span className="flex items-center gap-3"><span className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.8)]"></span> 검증된 팁</span>
               <span className="flex items-center gap-3"><span className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.8)]"></span> 상시 업데이트</span>
