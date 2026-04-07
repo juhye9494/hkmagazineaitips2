@@ -15,7 +15,11 @@ import {
   MessageCircle,
   ThumbsUp,
   Share2,
-  ChevronRight
+  ChevronRight,
+  CheckCircle2,
+  Upload,
+  X,
+  Image as ImageIcon
 } from 'lucide-react'
 
 export default function PostDetailPage({
@@ -34,6 +38,8 @@ export default function PostDetailPage({
   const [isHelpfulClicked, setIsHelpfulClicked] = useState(false)
   const [comments, setComments] = useState<any[]>([])
   const [newComment, setNewComment] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editingContent, setEditingContent] = useState('')
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
@@ -53,6 +59,19 @@ export default function PostDetailPage({
 
         setPost(data)
         setHelpfulCount(data.helpful_count || 0)
+
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setUser(user)
+          const { data: voteData } = await supabase
+            .from('helpful_votes')
+            .select('*')
+            .eq('post_id', id)
+            .eq('user_id', user.id)
+            .single()
+            
+          if (voteData) setIsHelpfulClicked(true)
+        }
       } catch (err) {
         console.error('Fetch error:', err)
         setError('데이터를 불러오는 중 오류가 발생했습니다.')
@@ -71,28 +90,40 @@ export default function PostDetailPage({
       setComments(data || [])
     }
 
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-    }
-
     fetchPost()
     fetchComments()
-    checkUser()
   }, [id, supabase])
 
   const handleHelpful = async () => {
-    if (isHelpfulClicked) return
+    if (!user) {
+      alert('로그인이 필요한 기능입니다.')
+      return
+    }
     
-    const newCount = helpfulCount + 1
-    const { error } = await supabase
-      .from('posts')
-      .update({ helpful_count: newCount })
-      .eq('id', post.id)
+    if (isHelpfulClicked) {
+      const { error } = await supabase
+        .from('helpful_votes')
+        .delete()
+        .eq('post_id', post.id)
+        .eq('user_id', user.id)
 
-    if (!error) {
-       setHelpfulCount(newCount)
-       setIsHelpfulClicked(true)
+      if (!error) {
+        const newCount = Math.max(0, helpfulCount - 1)
+        await supabase.from('posts').update({ helpful_count: newCount }).eq('id', post.id)
+        setHelpfulCount(newCount)
+        setIsHelpfulClicked(false)
+      }
+    } else {
+      const { error } = await supabase
+        .from('helpful_votes')
+        .insert({ post_id: post.id, user_id: user.id })
+
+      if (!error) {
+        const newCount = helpfulCount + 1
+        await supabase.from('posts').update({ helpful_count: newCount }).eq('id', post.id)
+        setHelpfulCount(newCount)
+        setIsHelpfulClicked(true)
+      }
     }
   }
 
@@ -107,8 +138,9 @@ export default function PostDetailPage({
     const { data, error } = await supabase
       .from('comments')
       .insert({
-        post_id: post.id,
+        post_id: id,
         user_id: user.id,
+        user_name: user.user_metadata?.full_name || '사용자',
         content: newComment
       })
       .select()
@@ -117,6 +149,40 @@ export default function PostDetailPage({
     if (!error) {
       setComments([...comments, data])
       setNewComment('')
+    }
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return
+
+    const { error } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', commentId)
+
+    if (!error) {
+      setComments(comments.filter(c => c.id !== commentId))
+    }
+  }
+
+  const handleStartEdit = (comment: any) => {
+    setEditingCommentId(comment.id)
+    setEditingContent(comment.content)
+  }
+
+  const handleUpdateComment = async (commentId: string) => {
+    if (!editingContent.trim()) return
+
+    const { error } = await supabase
+      .from('comments')
+      .update({ content: editingContent })
+      .eq('id', commentId)
+
+    if (!error) {
+      setComments(comments.map(c => 
+        c.id === commentId ? { ...c, content: editingContent } : c
+      ))
+      setEditingCommentId(null)
     }
   }
 
@@ -140,7 +206,6 @@ export default function PostDetailPage({
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-40">
-      {/* Top Navigation */}
       <div className="max-w-4xl mx-auto px-6 py-8">
         <button 
           onClick={() => router.back()}
@@ -151,13 +216,12 @@ export default function PostDetailPage({
       </div>
 
       <main className="max-w-4xl mx-auto px-6 space-y-12">
-        {/* Header Card */}
         <div className="bg-white rounded-[3rem] p-12 shadow-xl shadow-blue-900/5 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 opacity-50" />
           <div className="relative z-10">
             <div className="flex items-center gap-4 mb-8">
               <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                <ImageIcon className="w-8 h-8" />
               </div>
               <div>
                 <span className="inline-block px-3 py-1 bg-purple-50 text-purple-600 text-xs font-black rounded-lg mb-2 uppercase tracking-wider">
@@ -170,7 +234,7 @@ export default function PostDetailPage({
             </div>
             
             <p className="text-lg text-gray-500 font-medium mb-10 leading-relaxed max-w-2xl">
-              {post.description || '인공지능 기술을 활용하여 실무 효율을 극대화하는 방법을 안내합니다.'}
+              {post.description || post.content}
             </p>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -206,55 +270,46 @@ export default function PostDetailPage({
           </div>
         </div>
 
-        {/* Featured Image */}
         {post.image_url && (
           <div className="relative aspect-[21/9] w-full rounded-[3rem] overflow-hidden shadow-2xl shadow-blue-900/10 border-8 border-white">
             <Image src={post.image_url} alt="Cover" fill className="object-cover" />
           </div>
         )}
 
-        {/* Step-by-Step Guide */}
         <section className="bg-white rounded-[3rem] p-10 md:p-14 shadow-xl shadow-blue-900/5">
           <div className="flex items-center gap-3 mb-10">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+              <CheckCircle2 className="w-5 h-5" />
             </div>
             <h2 className="text-2xl font-black text-gray-900">단계별 가이드</h2>
           </div>
 
           <div className="space-y-6">
-            {steps.length > 0 ? steps.map((step: any, index: number) => (
-              <div key={index} className="group p-8 bg-blue-50/30 rounded-[2.5rem] border border-transparent hover:border-blue-100 hover:bg-white hover:shadow-xl hover:shadow-blue-900/5 transition-all duration-300">
+            {steps.map((step: any, index: number) => (
+              <div key={index} className="group p-8 bg-blue-50/30 rounded-[2.5rem] border border-transparent hover:border-blue-100 hover:bg-white transition-all duration-300">
                 <h3 className="text-xl font-black text-gray-900 mb-4 flex items-center gap-4">
                   <span className="text-blue-600">{index + 1}단계:</span> {step.title}
                 </h3>
-                <p className="text-gray-500 font-medium leading-relaxed whitespace-pre-wrap mb-6">
-                  {step.content}
-                </p>
+                <p className="text-gray-500 font-medium leading-relaxed whitespace-pre-wrap mb-6">{step.content}</p>
                 {step.image_url && (
-                  <div className="relative aspect-video w-full rounded-[2rem] overflow-hidden border-4 border-white shadow-sm mt-4">
+                  <div className="relative aspect-video w-full rounded-[2rem] overflow-hidden border-4 border-white mt-4 shadow-sm">
                     <Image src={step.image_url} alt={`Step ${index + 1}`} fill className="object-cover" />
                   </div>
                 )}
               </div>
-            )) : (
-              <div className="prose prose-lg max-w-none text-gray-500 font-medium leading-relaxed whitespace-pre-wrap">
-                {post.content}
-              </div>
-            )}
+            ))}
           </div>
         </section>
 
-        {/* Tips Section */}
         {tips.length > 0 && (
-          <section className="bg-white rounded-[3rem] p-12 shadow-xl shadow-blue-900/5 border border-gray-100">
+          <section className="bg-white rounded-[3rem] p-12 shadow-xl shadow-blue-900/5">
             <div className="flex items-center gap-3 mb-8">
               <Lightbulb className="w-7 h-7 text-orange-400" />
               <h2 className="text-2xl font-black text-gray-900">핵심 팁</h2>
             </div>
             <ul className="space-y-4">
               {tips.map((tip: string, i: number) => (
-                <li key={i} className="flex items-start gap-4 p-4 rounded-2xl hover:bg-orange-50/50 transition-colors">
+                <li key={i} className="flex items-start gap-4 p-4 rounded-2xl hover:bg-orange-50/50">
                   <div className="w-2 h-2 rounded-full bg-orange-400 mt-2.5 shrink-0" />
                   <p className="text-gray-600 font-bold">{tip}</p>
                 </li>
@@ -263,16 +318,15 @@ export default function PostDetailPage({
           </section>
         )}
 
-        {/* Tools Section */}
         {tools.length > 0 && (
-          <section className="bg-white rounded-[3rem] p-12 shadow-xl shadow-blue-900/5 border border-gray-100">
+          <section className="bg-white rounded-[3rem] p-12 shadow-xl shadow-blue-900/5">
             <div className="flex items-center gap-3 mb-8">
               <Wrench className="w-7 h-7 text-blue-500" />
               <h2 className="text-2xl font-black text-gray-900">사용 도구</h2>
             </div>
             <div className="flex flex-wrap gap-3">
               {tools.map((tool: string, i: number) => (
-                <span key={i} className="px-6 py-3 bg-blue-50 text-blue-600 font-bold rounded-2xl text-sm border border-blue-100">
+                <span key={i} className="px-6 py-3 bg-blue-50 text-blue-600 font-bold rounded-2xl text-sm">
                   {tool}
                 </span>
               ))}
@@ -280,79 +334,89 @@ export default function PostDetailPage({
           </section>
         )}
 
-        {/* Engagement Footer */}
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[3rem] p-14 text-center text-white shadow-2xl shadow-blue-900/20 relative overflow-hidden group">
-           <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-5 transition-opacity" />
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[3rem] p-14 text-center text-white shadow-2xl relative overflow-hidden group">
            <h2 className="text-3xl font-black mb-4">이 가이드가 도움이 되셨나요?</h2>
            <p className="text-blue-100 font-medium mb-10">여러분의 노하우도 공유해 주세요. 함께 성장하는 힘이 됩니다!</p>
-           
-           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
               <button 
                 onClick={handleHelpful}
-                disabled={isHelpfulClicked}
-                className={`px-10 py-4 rounded-full font-black flex items-center gap-3 transition-all ${isHelpfulClicked ? 'bg-white/20 text-white' : 'bg-white text-blue-600 hover:scale-105 shadow-xl'}`}
+                className={`px-10 py-4 rounded-full font-black flex items-center gap-3 transition-all ${isHelpfulClicked ? 'bg-white text-blue-600' : 'bg-white/10 hover:bg-white text-blue-100 hover:text-blue-600'}`}
               >
-                <ThumbsUp className={`w-5 h-5 ${isHelpfulClicked ? 'fill-white' : ''}`} />
+                <ThumbsUp className={`w-5 h-5 ${isHelpfulClicked ? 'fill-blue-600' : ''}`} />
                 {isHelpfulClicked ? '추천 완료!' : '도움이 되었어요'} ({helpfulCount})
               </button>
-              <button 
-                onClick={() => router.push('/')}
-                className="px-10 py-4 bg-white/10 hover:bg-white/20 text-white font-black rounded-full transition-all border border-white/20"
-              >
+              <button onClick={() => router.push('/')} className="px-10 py-4 bg-white/10 hover:bg-white/20 text-white font-black rounded-full transition-all">
                 다른 가이드 보러가기
               </button>
            </div>
         </div>
 
-        {/* Comments Section */}
         <section className="pt-20">
-          <div className="flex items-center gap-3 mb-10">
+          <div className="flex items-center gap-3 mb-10 px-4">
             <MessageCircle className="w-8 h-8 text-gray-400" />
             <h2 className="text-2xl font-black text-gray-900">댓글 {comments.length}</h2>
           </div>
 
-          <div className="bg-white rounded-[3rem] p-10 md:p-12 shadow-xl shadow-blue-900/5 border border-gray-100 mb-12">
+          <div className="bg-white rounded-[3rem] p-10 md:p-12 shadow-xl shadow-blue-900/5 mb-12">
             {user ? (
               <form onSubmit={handleAddComment} className="space-y-4">
                 <textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="댓글을 작성해 보세요..."
-                  className="w-full p-6 bg-gray-50 border-none rounded-3xl focus:ring-2 focus:ring-blue-500 font-medium resize-none shadow-inner"
+                  placeholder={`${user.user_metadata?.full_name || '사용자'}님, 댓글을 작성해 보세요...`}
+                  className="w-full p-6 bg-gray-50 border-none rounded-3xl focus:ring-2 focus:ring-blue-500 font-medium resize-none"
                   rows={3}
                 />
                 <div className="flex justify-end">
-                  <button className="px-10 py-3 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20">
-                    작성하기
-                  </button>
+                  <button className="px-10 py-3 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all">작성하기</button>
                 </div>
               </form>
             ) : (
-              <div className="text-center py-10">
-                <p className="text-gray-400 font-bold mb-6">댓글을 작성하려면 로그인이 필요합니다.</p>
-                <button 
-                  onClick={() => router.push('/')}
-                  className="px-10 py-3 bg-blue-600 text-white font-black rounded-2xl"
-                >
-                  로그인
-                </button>
+              <div className="text-center py-8">
+                <p className="text-gray-400 font-bold mb-4">로그인 후 댓글을 남길 수 있습니다.</p>
+                <button onClick={() => router.push('/')} className="px-8 py-2.5 bg-blue-600 text-white font-black rounded-xl text-sm">로그인하기</button>
               </div>
             )}
           </div>
 
           <div className="space-y-6">
             {comments.map((comment) => (
-              <div key={comment.id} className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-50 flex gap-6">
-                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-black text-lg shrink-0">
-                  {comment.user_id ? 'U' : 'A'}
-                </div>
-                <div>
-                   <div className="flex items-center gap-3 mb-2">
-                     <span className="font-black text-gray-900 text-sm">익명 사용자</span>
-                     <span className="text-xs text-gray-400 font-medium">{new Date(comment.created_at).toLocaleDateString()}</span>
+              <div key={comment.id} className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-50">
+                <div className="flex items-start justify-between mb-4">
+                   <div className="flex items-center gap-5">
+                      <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-black text-lg">
+                        {comment.user_name ? comment.user_name[0] : 'U'}
+                      </div>
+                      <div>
+                        <p className="font-black text-gray-900">{comment.user_name || '익명 사용자'}</p>
+                        <p className="text-xs text-gray-400 font-medium">{new Date(comment.created_at).toLocaleDateString()}</p>
+                      </div>
                    </div>
-                   <p className="text-gray-600 font-bold leading-relaxed">{comment.content}</p>
+                   
+                   {user && comment.user_id === user.id && (
+                     <div className="flex gap-2">
+                       <button onClick={() => handleStartEdit(comment)} className="p-2 text-gray-300 hover:text-blue-500 transition-colors"><Upload className="w-4 h-4" /></button>
+                       <button onClick={() => handleDeleteComment(comment.id)} className="p-2 text-gray-300 hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>
+                     </div>
+                   )}
                 </div>
+
+                {editingCommentId === comment.id ? (
+                  <div className="space-y-3">
+                    <textarea
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      className="w-full p-4 bg-gray-50 border-blue-100 border rounded-2xl focus:ring-2 focus:ring-blue-500 font-medium"
+                      rows={2}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setEditingCommentId(null)} className="text-sm font-bold text-gray-400">취소</button>
+                      <button onClick={() => handleUpdateComment(comment.id)} className="text-sm font-bold text-blue-600">저장</button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-600 font-bold leading-relaxed ml-16">{comment.content}</p>
+                )}
               </div>
             ))}
           </div>
