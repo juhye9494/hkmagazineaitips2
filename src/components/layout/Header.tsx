@@ -3,10 +3,14 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/utils/supabase/client'
 import LoginButton from '@/components/auth/LoginButton'
 import { SearchModal } from '@/components/search/SearchModal'
 
 export default function Header() {
+  const router = useRouter()
+  const supabase = createClient()
   const [isSearchOpen, setIsSearchOpen] = React.useState(false)
 
   // 전역 단축키 및 커스텀 이벤트 설정
@@ -27,6 +31,21 @@ export default function Header() {
     }
   }, [])
 
+  const handleCreateGuide = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+      router.push('/posts/new')
+    } else {
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/posts/new`,
+        },
+      })
+    }
+  }
+
   return (
     <>
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/50">
@@ -41,9 +60,12 @@ export default function Header() {
           </Link>
 
           <div className="flex-1 flex justify-end items-center gap-4">
-            <Link href="/posts/new" className="hidden md:block px-6 py-2.5 bg-[#0056FF] text-white text-sm font-semibold rounded-full hover:bg-[#0046CC] transition-all shadow-lg shadow-blue-500/20">
+            <button 
+              onClick={handleCreateGuide}
+              className="hidden md:block px-6 py-2.5 bg-[#0056FF] text-white text-sm font-semibold rounded-full hover:bg-[#0046CC] transition-all shadow-lg shadow-blue-500/20"
+            >
               나만의 가이드 공유하기
-            </Link>
+            </button>
             <button 
               onClick={() => setIsSearchOpen(true)}
               className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"

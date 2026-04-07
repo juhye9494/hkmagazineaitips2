@@ -2,12 +2,14 @@
 
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
 
 const CATEGORIES = ['전체', '문서작성', '디자인', '멀티미디어', '개발', '마케팅', '데이터분석', '고객관리', '기타']
 
 export default function Home() {
+  const router = useRouter()
   const supabase = createClient()
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,6 +42,21 @@ export default function Home() {
   // 전역 검색 모달 트리거 이벤트 발생시키기
   const openSearch = () => {
     window.dispatchEvent(new CustomEvent('open-search'))
+  }
+
+  const handleCreateGuide = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+      router.push('/posts/new')
+    } else {
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/posts/new`,
+        },
+      })
+    }
   }
 
   return (
@@ -124,9 +141,12 @@ export default function Home() {
              <div className="text-5xl mb-6">📂</div>
              <p className="text-gray-500 text-lg font-bold">등록된 가이드가 없습니다.</p>
              <p className="text-gray-400 text-sm mt-2">첫 번째 가이드를 공유해 보세요!</p>
-             <Link href="/posts/new" className="mt-8 inline-block px-8 py-3 bg-[#0056FF] text-white font-bold rounded-full shadow-lg shadow-blue-500/20 hover:scale-105 transition-transform">
+             <button 
+               onClick={handleCreateGuide}
+               className="mt-8 inline-block px-8 py-3 bg-[#0056FF] text-white font-bold rounded-full shadow-lg shadow-blue-500/20 hover:scale-105 transition-transform"
+             >
                가이드 공유하기
-             </Link>
+             </button>
           </div>
         )}
       </section>
