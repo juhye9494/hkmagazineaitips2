@@ -48,6 +48,8 @@ export default function PostDetailPage({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
+  const [replyToId, setReplyToId] = useState<string | null>(null)
+  const [replyContent, setReplyContent] = useState('')
   
   // Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -156,10 +158,11 @@ export default function PostDetailPage({
     } catch (err) { console.error(err) }
   }
 
-  const handleAddComment = async (e: React.FormEvent) => {
+  const handleAddComment = async (e: React.FormEvent, parentId: string | null = null) => {
     e.preventDefault()
     if (!user) { handleLogin(); return; }
-    if (!newComment.trim() || isSubmitting) return
+    const contentToSubmit = parentId ? replyContent : newComment
+    if (!contentToSubmit.trim() || isSubmitting) return
     setIsSubmitting(true)
     try {
       const { data, error } = await supabase
@@ -168,12 +171,18 @@ export default function PostDetailPage({
           post_id: id,
           user_id: user.id,
           user_name: user.user_metadata?.full_name || '사용자',
-          content: newComment
+          content: contentToSubmit,
+          parent_id: parentId
         })
         .select().single()
       if (data) {
         setComments([data, ...comments])
-        setNewComment('')
+        if (parentId) {
+          setReplyContent('')
+          setReplyToId(null)
+        } else {
+          setNewComment('')
+        }
       }
     } catch (err: any) { alert(err.message) }
     finally { setIsSubmitting(false) }
@@ -210,6 +219,10 @@ export default function PostDetailPage({
   const tips = Array.isArray(post.tips) ? post.tips : []
   const tools = Array.isArray(post.tools) ? post.tools : []
   const links = Array.isArray(post.links) ? post.links : []
+
+  // Group comments into parents and replies
+  const parentComments = comments.filter(c => !c.parent_id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  const replies = comments.filter(c => c.parent_id).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-40">
@@ -276,8 +289,8 @@ export default function PostDetailPage({
         </div>
 
         {post.image_url && (
-          <div className="relative aspect-[21/9] w-full rounded-[3rem] overflow-hidden shadow-2xl shadow-blue-900/10 border-8 border-white">
-            <Image src={post.image_url} alt="Cover" fill className="object-cover" priority />
+          <div className="relative w-full rounded-[3rem] overflow-hidden shadow-2xl shadow-blue-900/10 border-8 border-white bg-gray-50">
+            <img src={post.image_url} alt="Cover" className="w-full h-auto max-h-[600px] object-contain mx-auto" />
           </div>
         )}
 
@@ -302,13 +315,13 @@ export default function PostDetailPage({
                  <div className="space-y-8">
                     {Array.isArray(step.image_urls) && step.image_urls.length > 0 ? (
                       step.image_urls.map((url: string, imgIdx: number) => (
-                        <div key={imgIdx} className="relative aspect-video w-full rounded-[3rem] overflow-hidden border-8 border-white shadow-2xl shadow-blue-900/10">
-                          <Image src={url} alt={`Step ${index + 1}`} fill className="object-cover" />
+                        <div key={imgIdx} className="relative w-full rounded-[3rem] overflow-hidden border-8 border-white shadow-2xl shadow-blue-900/10 bg-gray-50">
+                          <img src={url} alt={`Step ${index + 1}`} className="w-full h-auto max-h-[800px] object-contain mx-auto" />
                         </div>
                       ))
                     ) : step.image_url ? (
-                      <div className="relative aspect-video w-full rounded-[3rem] overflow-hidden border-8 border-white shadow-2xl shadow-blue-900/10">
-                        <Image src={step.image_url} alt={`Step ${index + 1}`} fill className="object-cover" />
+                      <div className="relative w-full rounded-[3rem] overflow-hidden border-8 border-white shadow-2xl shadow-blue-900/10 bg-gray-50">
+                        <img src={step.image_url} alt={`Step ${index + 1}`} className="w-full h-auto max-h-[800px] object-contain mx-auto" />
                       </div>
                     ) : null}
                  </div>
@@ -426,36 +439,93 @@ export default function PostDetailPage({
               </div>
             )}
           </div>
-          <div className="space-y-6">
-            {comments.map((comment) => (
-              <div key={comment.id} className="bg-white rounded-[3rem] p-10 shadow-sm border border-gray-100 animate-in fade-in slide-in-from-bottom-4">
-                <div className="flex items-start justify-between mb-6">
-                   <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg">
-                        {comment.user_name ? comment.user_name[0] : 'U'}
-                      </div>
-                      <div>
-                        <p className="font-black text-gray-900 text-lg leading-tight mb-1">{comment.user_name || '익명 사용자'}</p>
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">{new Date(comment.created_at).toLocaleDateString()}</p>
-                      </div>
-                   </div>
-                   {user && comment.user_id === user.id && (
-                     <div className="flex items-center gap-1">
-                        <button onClick={() => handleDeleteComment(comment.id)} className="p-3 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><X className="w-5 h-5" /></button>
+          <div className="space-y-8">
+            {parentComments.map((comment) => (
+              <div key={comment.id} className="space-y-4">
+                {/* Parent Comment */}
+                <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-gray-100 animate-in fade-in slide-in-from-left-4">
+                  <div className="flex items-start justify-between mb-6">
+                     <div className="flex items-center gap-5">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg">
+                          {comment.user_name ? comment.user_name[0] : 'U'}
+                        </div>
+                        <div>
+                          <p className="font-black text-gray-900 text-lg leading-tight mb-1">{comment.user_name || '익명 사용자'}</p>
+                          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">{new Date(comment.created_at).toLocaleDateString()}</p>
+                        </div>
                      </div>
-                   )}
-                </div>
-                {editingCommentId === comment.id ? (
-                  <div className="space-y-3">
-                    <textarea value={editingContent} onChange={(e) => setEditingContent(e.target.value)} className="w-full p-4 bg-gray-50 border-blue-100 border rounded-2xl focus:ring-2 focus:ring-blue-500 font-medium" rows={2} />
-                    <div className="flex justify-end gap-2">
-                       <button onClick={() => setEditingCommentId(null)} className="text-sm font-bold text-gray-400">취소</button>
-                       <button onClick={() => handleUpdateComment(comment.id)} className="text-sm font-bold text-blue-600">저장</button>
-                    </div>
+                     <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => setReplyToId(replyToId === comment.id ? null : comment.id)}
+                          className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${replyToId === comment.id ? 'bg-blue-600 text-white' : 'text-blue-600 hover:bg-blue-50'}`}
+                        >
+                          {replyToId === comment.id ? '취소' : '답글 달기'}
+                        </button>
+                        {user && comment.user_id === user.id && (
+                          <button onClick={() => handleDeleteComment(comment.id)} className="p-3 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-5 h-5" /></button>
+                        )}
+                     </div>
                   </div>
-                ) : (
-                  <p className="text-gray-600 font-bold text-lg leading-relaxed pl-2">{comment.content}</p>
+                  {editingCommentId === comment.id ? (
+                    <div className="space-y-3">
+                      <textarea value={editingContent} onChange={(e) => setEditingContent(e.target.value)} className="w-full p-4 bg-gray-50 border-blue-100 border rounded-2xl focus:ring-2 focus:ring-blue-500 font-medium" rows={2} />
+                      <div className="flex justify-end gap-2">
+                         <button onClick={() => setEditingCommentId(null)} className="text-sm font-bold text-gray-400">취소</button>
+                         <button onClick={() => handleUpdateComment(comment.id)} className="text-sm font-bold text-blue-600">저장</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-600 font-bold text-lg leading-relaxed pl-2">{comment.content}</p>
+                  )}
+                </div>
+
+                {/* Reply Input Form */}
+                {replyToId === comment.id && (
+                  <div className="ml-16 mr-6 bg-blue-50/50 rounded-[2rem] p-8 border border-blue-100 animate-in slide-in-from-top-4">
+                    <div className="flex items-center gap-3 mb-4 text-blue-600">
+                       <MessageCircle className="w-4 h-4" />
+                       <span className="text-xs font-black uppercase tracking-widest">답글 남기기</span>
+                    </div>
+                    <form onSubmit={(e) => handleAddComment(e, comment.id)} className="space-y-4">
+                      <textarea
+                        value={replyContent}
+                        onChange={(e) => setReplyContent(e.target.value)}
+                        placeholder="이 댓글에 대한 답변을 입력하세요..."
+                        className="w-full p-6 bg-white border border-blue-100 rounded-2xl focus:ring-4 focus:ring-blue-100 outline-none font-bold text-md resize-none shadow-sm"
+                        rows={2}
+                      />
+                      <div className="flex justify-end">
+                        <button disabled={isSubmitting} className="px-8 py-3 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/10 active:scale-95 text-sm">
+                          {isSubmitting ? '전송 중...' : '답글 등록'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 )}
+
+                {/* Render Replies */}
+                <div className="space-y-4 ml-16">
+                  {replies.filter(r => r.parent_id === comment.id).map(reply => (
+                    <div key={reply.id} className="bg-gray-50/50 rounded-[2.5rem] p-8 border border-gray-100 flex gap-4 animate-in fade-in slide-in-from-left-4 relative">
+                       <div className="absolute -left-6 top-10 w-6 h-px bg-gray-200" />
+                       <div className="w-12 h-12 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-gray-400 font-black text-sm shadow-sm shrink-0">
+                         {reply.user_name ? reply.user_name[0] : 'U'}
+                       </div>
+                       <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                               <p className="font-black text-gray-900 text-sm">{reply.user_name || '익명 사용자'}</p>
+                               <span className="text-[10px] text-gray-400 font-bold">{new Date(reply.created_at).toLocaleDateString()}</span>
+                            </div>
+                            {user && reply.user_id === user.id && (
+                              <button onClick={() => handleDeleteComment(reply.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1"><X className="w-4 h-4" /></button>
+                            )}
+                          </div>
+                          <p className="text-gray-600 font-bold text-md leading-relaxed">{reply.content}</p>
+                       </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

@@ -267,17 +267,17 @@ export default function NewPostPage() {
               </h2>
            </div>
            
-           <label className="relative block aspect-[21/9] w-full rounded-[2.5rem] bg-gray-50 border-2 border-dashed border-gray-200 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer overflow-hidden group">
+           <label className="relative block w-full rounded-[2.5rem] bg-gray-50 border-2 border-dashed border-gray-200 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer overflow-hidden group min-h-[200px]">
               <input type="file" accept="image/*" onChange={handleFeaturedImageChange} className="hidden" />
               {featuredPreview ? (
-                <>
-                  <img src={featuredPreview} alt="Cover Preview" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                <div className="relative w-full">
+                  <img src={featuredPreview} alt="Cover Preview" className="w-full h-auto max-h-[500px] object-contain mx-auto transition-transform group-hover:scale-105" />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <div className="flex items-center gap-2 text-white font-bold">
                        <Camera className="w-6 h-6" /> 커버 변경하기
                     </div>
                   </div>
-                </>
+                </div>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 text-blue-600">
@@ -402,8 +402,8 @@ export default function NewPostPage() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {step.preview_urls?.map((url, imgIdx) => (
-                          <div key={imgIdx} className="relative aspect-video rounded-2xl overflow-hidden border-2 border-gray-50 group/img">
-                            <img src={url} alt="Step preview" className="w-full h-full object-cover" />
+                          <div key={imgIdx} className="relative w-full rounded-2xl overflow-hidden border-2 border-gray-50 group/img bg-gray-50">
+                            <img src={url} alt="Step preview" className="w-full h-auto max-h-[400px] object-contain mx-auto" />
                             <button 
                               onClick={() => removeStepImage(index, imgIdx)}
                               className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover/img:opacity-100 transition-opacity"

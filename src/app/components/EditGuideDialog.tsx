@@ -246,10 +246,10 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
                     <div className="w-1.5 h-5 bg-blue-600 rounded-full" />
                     커버 이미지
                   </h3>
-                  <label className="relative block aspect-[21/7] rounded-[2rem] bg-gray-50 border-2 border-dashed border-gray-200 overflow-hidden cursor-pointer group">
+                  <label className="relative block w-full rounded-[2.5rem] bg-gray-50 border-2 border-dashed border-gray-200 overflow-hidden cursor-pointer group min-h-[150px]">
                     <input type="file" className="hidden" accept="image/*" onChange={handleFeaturedImageChange} />
                     {featuredPreview ? (
-                      <img src={featuredPreview} alt="Cover" className="w-full h-full object-cover" />
+                      <img src={featuredPreview} alt="Cover" className="w-full h-auto max-h-[400px] object-contain mx-auto" />
                     ) : (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
                         <Upload className="w-8 h-8 mb-2" />
@@ -292,15 +292,14 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
                         <div className="space-y-6">
                           <input value={step.title} onChange={e => updateStep(idx, 'title', e.target.value)} placeholder="단계 제목" className="w-full text-xl font-black border-none p-0 focus:ring-0 placeholder:text-gray-200" />
                           <textarea value={step.content} onChange={e => updateStep(idx, 'content', e.target.value)} placeholder="상세 설명" className="w-full text-gray-500 font-medium border-none p-0 focus:ring-0 min-h-[100px] resize-none" />
-                          
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {step.preview_urls?.map((url, imgIdx) => (
-                              <div key={imgIdx} className="relative aspect-video rounded-xl overflow-hidden group/img">
-                                <img src={url} alt="step" className="w-full h-full object-cover" />
+                              <div key={imgIdx} className="relative w-full rounded-xl overflow-hidden group/img bg-gray-50">
+                                <img src={url} alt="step" className="w-full h-auto max-h-[200px] object-contain mx-auto" />
                                 <button onClick={() => removeStepImage(idx, imgIdx)} className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-md opacity-0 group-hover/img:opacity-100 transition-opacity"><X className="w-3 h-3"/></button>
                               </div>
                             ))}
-                            <label className="flex flex-col items-center justify-center aspect-video bg-gray-50 border-2 border-dashed border-gray-100 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors">
+                            <label className="flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-100 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors min-h-[100px]">
                               <input type="file" multiple className="hidden" accept="image/*" onChange={e => updateStep(idx, 'image_files', e.target.files)} />
                               <Plus className="w-4 h-4 text-gray-300" />
                               <span className="text-[10px] font-black text-gray-400 mt-1">추가</span>
@@ -341,7 +340,36 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
                     <button onClick={() => setTools([...tools, ''])} className="w-full py-3 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold transition-all"><Plus className="w-4 h-4 mx-auto"/></button>
                   </div>
                </div>
-            </div>
+
+                {/* Reference Links Section Added */}
+                <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100">
+                  <h4 className="text-sm font-black text-green-600 uppercase mb-6 flex items-center gap-2">
+                    <Tag className="w-4 h-4" /> 참고 링크 수정
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {links.map((link, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input 
+                          value={link} 
+                          onChange={e => {
+                            const newLinks = [...links];
+                            newLinks[i] = e.target.value;
+                            setLinks(newLinks);
+                          }} 
+                          className="flex-1 h-12 px-5 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold" 
+                          placeholder="https://..."
+                        />
+                        <button onClick={() => setLinks(links.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-400">
+                          <X className="w-4 h-4"/>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => setLinks([...links, ''])} className="w-full mt-4 py-3 bg-green-50 text-green-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+                    <Plus className="w-4 h-4" /> 링크 추가
+                  </button>
+                </div>
+             </div>
 
             {/* Sticky Actions */}
             <div className="px-10 py-8 bg-white border-t flex gap-4 shrink-0">
