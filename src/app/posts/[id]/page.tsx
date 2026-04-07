@@ -41,6 +41,7 @@ export default function PostDetailPage({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
   const [user, setUser] = useState<any>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -60,6 +61,7 @@ export default function PostDetailPage({
         setPost(data)
         setHelpfulCount(data.helpful_count || 0)
 
+        // 초기 사용자 확인 및 추천 상태 확인
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
           setUser(user)
@@ -90,65 +92,90 @@ export default function PostDetailPage({
       setComments(data || [])
     }
 
+    // Auth 상태 실시간 감지
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
     fetchPost()
     fetchComments()
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [id, supabase])
 
   const handleHelpful = async () => {
     if (!user) {
-      alert('로그인이 필요한 기능입니다.')
+      alert('추천을 위해 로그인이 필요합니다. 홈 화면으로 이동합니다.')
+      router.push('/')
       return
     }
     
-    if (isHelpfulClicked) {
-      const { error } = await supabase
-        .from('helpful_votes')
-        .delete()
-        .eq('post_id', post.id)
-        .eq('user_id', user.id)
+    // 토글 로직
+    try {
+      if (isHelpfulClicked) {
+        const { error } = await supabase
+          .from('helpful_votes')
+          .delete()
+          .eq('post_id', id)
+          .eq('user_id', user.id)
 
-      if (!error) {
-        const newCount = Math.max(0, helpfulCount - 1)
-        await supabase.from('posts').update({ helpful_count: newCount }).eq('id', post.id)
-        setHelpfulCount(newCount)
-        setIsHelpfulClicked(false)
-      }
-    } else {
-      const { error } = await supabase
-        .from('helpful_votes')
-        .insert({ post_id: post.id, user_id: user.id })
+        if (!error) {
+          const newCount = Math.max(0, helpfulCount - 1)
+          await supabase.from('posts').update({ helpful_count: newCount }).eq('id', id)
+          setHelpfulCount(newCount)
+          setIsHelpfulClicked(false)
+        }
+      } else {
+        const { error } = await supabase
+          .from('helpful_votes')
+          .insert({ post_id: id, user_id: user.id })
 
-      if (!error) {
-        const newCount = helpfulCount + 1
-        await supabase.from('posts').update({ helpful_count: newCount }).eq('id', post.id)
-        setHelpfulCount(newCount)
-        setIsHelpfulClicked(true)
+        if (!error) {
+          const newCount = helpfulCount + 1
+          await supabase.from('posts').update({ helpful_count: newCount }).eq('id', id)
+          setHelpfulCount(newCount)
+          setIsHelpfulClicked(true)
+        }
       }
+    } catch (err) {
+      console.error('Vote error:', err)
     }
   }
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) {
-      alert('로그인이 필요합니다.')
+      alert('로그인이 필요한 기능입니다.')
+      router.push('/')
       return
     }
-    if (!newComment.trim()) return
+    if (!newComment.trim() || isSubmitting) return
 
-    const { data, error } = await supabase
-      .from('comments')
-      .insert({
-        post_id: id,
-        user_id: user.id,
-        user_name: user.user_metadata?.full_name || '사용자',
-        content: newComment
-      })
-      .select()
-      .single()
+    setIsSubmitting(true)
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .insert({
+          post_id: id,
+          user_id: user.id,
+          user_name: user.user_metadata?.full_name || '사용자',
+          content: newComment
+        })
+        .select()
+        .single()
 
-    if (!error) {
-      setComments([...comments, data])
-      setNewComment('')
+      if (error) {
+        alert(`댓글 저장에 실패했습니다: ${error.message}`)
+      } else if (data) {
+        setComments([...comments, data])
+        setNewComment('')
+      }
+    } catch (err: any) {
+      alert(`오류가 발생했습니다: ${err.message}`)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
