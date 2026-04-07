@@ -129,26 +129,44 @@ export default function PostDetailPage({
           .eq('post_id', id)
           .eq('user_id', user.id)
 
-        if (!error) {
-          const newCount = Math.max(0, helpfulCount - 1)
-          await supabase.from('posts').update({ helpful_count: newCount }).eq('id', id)
-          setHelpfulCount(newCount)
-          setIsHelpfulClicked(false)
+        if (error) {
+          alert(`추천 취소 실패: ${error.message}`)
+          return
         }
+
+        const newCount = Math.max(0, helpfulCount - 1)
+        const { error: postError } = await supabase.from('posts').update({ helpful_count: newCount }).eq('id', id)
+        
+        if (postError) {
+          alert(`가이드 추천수 반영 실패: ${postError.message}. 'posts' 테이블에 'helpful_count' 컬럼이 있는지 확인해 주세요.`)
+          return
+        }
+
+        setHelpfulCount(newCount)
+        setIsHelpfulClicked(false)
       } else {
         const { error } = await supabase
           .from('helpful_votes')
           .insert({ post_id: id, user_id: user.id })
 
-        if (!error) {
-          const newCount = helpfulCount + 1
-          await supabase.from('posts').update({ helpful_count: newCount }).eq('id', id)
-          setHelpfulCount(newCount)
-          setIsHelpfulClicked(true)
+        if (error) {
+          alert(`추천 저장 실패: ${error.message}. 'helpful_votes' 테이블이 정상적으로 생성되었는지 확인해 주세요.`)
+          return
         }
+
+        const newCount = helpfulCount + 1
+        const { error: postError } = await supabase.from('posts').update({ helpful_count: newCount }).eq('id', id)
+        
+        if (postError) {
+          alert(`가이드 추천수 반영 실패: ${postError.message}`)
+          return
+        }
+
+        setHelpfulCount(newCount)
+        setIsHelpfulClicked(true)
       }
-    } catch (err) {
-      console.error('Vote error:', err)
+    } catch (err: any) {
+      alert(`시스템 오류: ${err.message}`)
     }
   }
 
