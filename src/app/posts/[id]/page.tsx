@@ -221,7 +221,7 @@ export default function PostDetailPage({
       />
 
       <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
-        <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-all font-bold text-sm">
+        <button onClick={() => router.push('/')} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-all font-bold text-sm">
           <ArrowLeft className="w-4 h-4" /> 돌아가기
         </button>
 
@@ -375,25 +375,26 @@ export default function PostDetailPage({
            )}
         </div>
 
-        <div className="flex flex-col items-center gap-8">
-           <button 
-             onClick={() => router.push('/')}
-             className="px-10 py-4 bg-white text-gray-600 font-black rounded-[1.5rem] border-2 border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-all flex items-center gap-3 text-sm shadow-sm"
-           >
-             <ArrowLeft className="w-4 h-4" /> 다른 가이드 구경하기
-           </button>
-
-           <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[4rem] p-16 text-center text-white shadow-[0_30px_60px_-15px_rgba(37,99,235,0.4)] relative overflow-hidden w-full">
-              <div className="relative z-10">
-                <h2 className="text-4xl font-black mb-4 tracking-tight">이 가이드가 도움이 되셨나요?</h2>
-                <p className="text-blue-100 font-bold mb-12 text-lg">여러분의 따뜻한 추천 한 번이 작성자에게는 큰 힘이 됩니다.</p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                   <button onClick={handleHelpful} className={`px-12 py-5 rounded-[2rem] font-black text-lg flex items-center gap-4 transition-all transform active:scale-95 ${isHelpfulClicked ? 'bg-white text-blue-600 shadow-xl shadow-white/20' : 'bg-white/10 hover:bg-white text-white hover:text-blue-600 border-2 border-white/20'}`}>
-                     <ThumbsUp className={`w-6 h-6 ${isHelpfulClicked ? 'fill-blue-600' : ''}`} />
-                     {isHelpfulClicked ? '추천 완료!' : '정말 도움됐어요'} ({helpfulCount})
-                   </button>
-                </div>
-              </div>
+        <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[4rem] p-16 text-center text-white shadow-[0_30px_60px_-15px_rgba(37,99,235,0.4)] relative overflow-hidden">
+           <div className="relative z-10">
+             <h2 className="text-4xl font-black mb-4 tracking-tight">이 가이드가 도움이 되셨나요?</h2>
+             <p className="text-blue-100 font-bold mb-12 text-lg">여러분의 따뜻한 추천 한 번이 작성자에게는 큰 힘이 됩니다.</p>
+             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+                <button 
+                  onClick={handleHelpful}
+                  className={`px-12 py-5 rounded-[2rem] font-black text-lg flex items-center gap-4 transition-all transform active:scale-95 ${isHelpfulClicked ? 'bg-white text-blue-600 shadow-xl shadow-white/20' : 'bg-white/10 hover:bg-white text-white hover:text-blue-600 border-2 border-white/20'}`}
+                >
+                  <ThumbsUp className={`w-6 h-6 ${isHelpfulClicked ? 'fill-blue-600' : ''}`} />
+                  {isHelpfulClicked ? '추천 완료!' : '정말 도움됐어요'} ({helpfulCount})
+                </button>
+                
+                <button 
+                  onClick={() => router.push('/')}
+                  className="px-12 py-5 rounded-[2rem] font-black text-lg flex items-center gap-4 bg-white/10 hover:bg-white text-white hover:text-blue-600 border-2 border-white/20 transition-all transform active:scale-95 shadow-sm"
+                >
+                  <ArrowLeft className="w-5 h-5" /> 다른 가이드 구경하기
+                </button>
+             </div>
            </div>
         </div>
 
