@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, Outfit } from 'next/font/google'
+import Link from 'next/link'
 import '@/styles/tailwind.css'
 import Header from '@/components/layout/Header'
 
@@ -47,7 +48,12 @@ export default function RootLayout({
                   <button className="p-1 hover:bg-white/10 rounded"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 012-2v-8a2 2 0 01-2-2h-8a2 2 0 01-2 2v8a2 2 0 012 2z" /></svg></button>
                 </div>
               </div>
-              <p className="mt-8 text-xs text-gray-500">© 2026 AI Guideline Archive. All Rights Reserved.</p>
+              <div className="mt-8 text-right flex flex-col md:items-end gap-3">
+                <Link href="/admin/login" className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors uppercase tracking-[0.2em] font-black">
+                  Admin Console
+                </Link>
+                <p className="text-xs text-gray-500">© 2026 AI Guideline Archive. All Rights Reserved.</p>
+              </div>
             </div>
           </div>
         </footer>

@@ -186,14 +186,11 @@ export default function Home() {
                     </p>
                     
                     <div className="mt-auto flex justify-between items-center pt-6 border-t border-gray-50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-black text-xs border border-blue-100">
-                           {post.author_name ? post.author_name[0] : 'M'}
-                        </div>
-                        <div className="flex flex-col">
-                           <span className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Contributor</span>
-                           <span className="text-xs font-black text-gray-900">{post.author_name || 'Member'}</span>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <UserCircle className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm font-bold text-gray-500">
+                          작성자: <span className="text-gray-900">{post.author_name || 'Member'}</span>
+                        </span>
                       </div>
                       <div className="w-10 h-10 rounded-xl bg-gray-50 text-gray-300 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-45 transition-all duration-500 shadow-inner">
                          <ArrowRight className="w-5 h-5" />

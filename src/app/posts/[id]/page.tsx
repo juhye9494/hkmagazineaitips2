@@ -248,7 +248,7 @@ export default function PostDetailPage({
                 <span className="inline-block px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-black rounded-lg mb-2 uppercase tracking-widest border border-purple-100">
                   {post.category || '기타'}
                 </span>
-                <h1 className="text-3xl md:text-5xl font-black text-gray-900 leading-tight tracking-tight">
+                <h1 className="text-2xl md:text-4xl font-black text-gray-900 leading-tight tracking-tight">
                   {post.title}
                 </h1>
               </div>
@@ -377,7 +377,7 @@ export default function PostDetailPage({
 
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[4rem] p-16 text-center text-white shadow-[0_30px_60px_-15px_rgba(37,99,235,0.4)] relative overflow-hidden">
            <div className="relative z-10">
-             <h2 className="text-4xl font-black mb-4 tracking-tight">이 가이드가 도움이 되셨나요?</h2>
+             <h2 className="text-2xl font-black mb-4 tracking-tight">이 가이드가 도움이 되셨나요?</h2>
              <p className="text-blue-100 font-bold mb-12 text-lg">여러분의 따뜻한 추천 한 번이 작성자에게는 큰 힘이 됩니다.</p>
              <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                 <button 
@@ -400,7 +400,7 @@ export default function PostDetailPage({
 
         <section className="pt-20 space-y-10">
           <div className="flex items-center justify-between px-6">
-            <h2 className="text-3xl font-black text-gray-900 flex items-center gap-4">
+            <h2 className="text-2xl font-black text-gray-900 flex items-center gap-4">
               <MessageCircle className="w-8 h-8 text-blue-600" />
               댓글 피드백 <span className="text-blue-600">{comments.length}</span>
             </h2>
