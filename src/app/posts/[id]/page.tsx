@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client'
 import Image from 'next/image'
 import { notFound, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use as useReact } from 'react'
 import { 
   Clock, 
   User, 
@@ -19,14 +19,17 @@ import {
 } from 'lucide-react'
 
 export default function PostDetailPage({
-  params,
+  params: paramsPromise,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
+  const params = useReact(paramsPromise)
+  const id = params.id
   const router = useRouter()
   const supabase = createClient()
   const [post, setPost] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [helpfulCount, setHelpfulCount] = useState(0)
   const [isHelpfulClicked, setIsHelpfulClicked] = useState(false)
   const [comments, setComments] = useState<any[]>([])
@@ -35,27 +38,34 @@ export default function PostDetailPage({
 
   useEffect(() => {
     const fetchPost = async () => {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('id', params.id)
-        .single()
+      try {
+        setLoading(true)
+        const { data, error: postError } = await supabase
+          .from('posts')
+          .select('*')
+          .eq('id', id)
+          .single()
 
-      if (error || !data) {
-        notFound()
-        return
+        if (postError || !data) {
+          setError('가이드를 찾을 수 없습니다.')
+          return
+        }
+
+        setPost(data)
+        setHelpfulCount(data.helpful_count || 0)
+      } catch (err) {
+        console.error('Fetch error:', err)
+        setError('데이터를 불러오는 중 오류가 발생했습니다.')
+      } finally {
+        setLoading(false)
       }
-
-      setPost(data)
-      setHelpfulCount(data.helpful_count || 0)
-      setLoading(false)
     }
 
     const fetchComments = async () => {
       const { data } = await supabase
         .from('comments')
         .select('*')
-        .eq('post_id', params.id)
+        .eq('post_id', id)
         .order('created_at', { ascending: true })
       
       setComments(data || [])
@@ -69,7 +79,7 @@ export default function PostDetailPage({
     fetchPost()
     fetchComments()
     checkUser()
-  }, [params.id, supabase])
+  }, [id, supabase])
 
   const handleHelpful = async () => {
     if (isHelpfulClicked) return
@@ -113,6 +123,14 @@ export default function PostDetailPage({
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+
+  if (error) return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+      <div className="text-4xl mb-4">⚠️</div>
+      <p className="text-xl font-bold text-gray-900 mb-2">{error}</p>
+      <button onClick={() => router.push('/')} className="text-blue-600 font-bold hover:underline">홈으로 돌아가기</button>
     </div>
   )
 
