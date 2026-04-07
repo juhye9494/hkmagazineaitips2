@@ -55,11 +55,9 @@ export default function PostDetailPage({
   const fetchData = async () => {
     setLoading(true)
     try {
-      // 1. Get Current User
       const { data: { user: currentUser } } = await supabase.auth.getUser()
       setUser(currentUser)
 
-      // 2. Fetch Post
       const { data: postData, error: postError } = await supabase
         .from('posts')
         .select('*')
@@ -72,7 +70,6 @@ export default function PostDetailPage({
       }
       setPost(postData)
 
-      // 3. Fetch Helpful Votes
       const { count: votesCount } = await supabase
         .from('helpful_votes')
         .select('*', { count: 'exact', head: true })
@@ -89,7 +86,6 @@ export default function PostDetailPage({
         setIsHelpfulClicked(!!myVote)
       }
 
-      // 4. Fetch Comments
       const { data: commentsData } = await supabase
         .from('comments')
         .select('*')
@@ -139,7 +135,7 @@ export default function PostDetailPage({
       const { error } = await supabase.from('posts').update(updatedData).eq('id', id)
       if (error) throw error
       alert('가이드가 성공적으로 수정되었습니다.')
-      fetchData() // Refresh page data
+      fetchData()
     } catch (err: any) {
       alert(`수정 실패: ${err.message}`)
     }
@@ -183,6 +179,30 @@ export default function PostDetailPage({
     finally { setIsSubmitting(false) }
   }
 
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return
+    try {
+      const { error } = await supabase.from('comments').delete().eq('id', commentId)
+      if (error) throw error
+      setComments(comments.filter(c => c.id !== commentId))
+    } catch (err: any) { alert(err.message) }
+  }
+
+  const handleStartEdit = (comment: any) => {
+    setEditingCommentId(comment.id)
+    setEditingContent(comment.content)
+  }
+
+  const handleUpdateComment = async (commentId: string) => {
+    if (!editingContent.trim()) return
+    try {
+      const { error } = await supabase.from('comments').update({ content: editingContent }).eq('id', commentId)
+      if (error) throw error
+      setComments(comments.map(c => c.id === commentId ? { ...c, content: editingContent } : c))
+      setEditingCommentId(null)
+    } catch (err: any) { alert(err.message) }
+  }
+
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>
   if (error || !post) return <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center"><p className="text-xl font-bold text-gray-900 mb-4">{error || '가이드를 찾을 수 없습니다.'}</p><button onClick={() => router.push('/')} className="text-blue-600 font-bold hover:underline">홈으로 돌아가기</button></div>
 
@@ -193,7 +213,6 @@ export default function PostDetailPage({
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-40">
-      {/* Edit Dialog */}
       <EditGuideDialog 
         isOpen={isEditModalOpen} 
         onClose={() => setIsEditModalOpen(false)} 
@@ -206,19 +225,12 @@ export default function PostDetailPage({
           <ArrowLeft className="w-4 h-4" /> 돌아가기
         </button>
 
-        {/* Author Actions */}
         {user && post.user_id === user.id && (
           <div className="flex items-center gap-3">
-             <button 
-              onClick={() => setIsEditModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-blue-600 font-black rounded-xl border border-blue-100 shadow-sm hover:bg-blue-50 transition-all"
-             >
+             <button onClick={() => setIsEditModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-white text-blue-600 font-black rounded-xl border border-blue-100 shadow-sm hover:bg-blue-50 transition-all">
                <Edit3 className="w-4 h-4" /> 수정하기
              </button>
-             <button 
-              onClick={handleDeletePost}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white text-red-500 font-black rounded-xl border border-red-50 shadow-sm hover:bg-red-50 transition-all"
-             >
+             <button onClick={handleDeletePost} className="flex items-center gap-2 px-5 py-2.5 bg-white text-red-500 font-black rounded-xl border border-red-50 shadow-sm hover:bg-red-50 transition-all">
                <Trash2 className="w-4 h-4" /> 삭제하기
              </button>
           </div>
@@ -241,11 +253,9 @@ export default function PostDetailPage({
                 </h1>
               </div>
             </div>
-            
             <p className="text-lg text-gray-500 font-medium mb-10 leading-relaxed max-w-2xl">
               {post.description || post.content}
             </p>
-
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { icon: User, label: '작성자', val: post.author_name || '익명' },
@@ -289,7 +299,6 @@ export default function PostDetailPage({
                     {step.title}
                  </h3>
                  <p className="text-gray-500 font-medium text-lg leading-relaxed whitespace-pre-wrap mb-10 pl-6">{step.content}</p>
-                 
                  <div className="space-y-8">
                     {Array.isArray(step.image_urls) && step.image_urls.length > 0 ? (
                       step.image_urls.map((url: string, imgIdx: number) => (
@@ -367,15 +376,11 @@ export default function PostDetailPage({
         </div>
 
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[4rem] p-16 text-center text-white shadow-[0_30px_60px_-15px_rgba(37,99,235,0.4)] relative overflow-hidden">
-           <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
            <div className="relative z-10">
              <h2 className="text-4xl font-black mb-4 tracking-tight">이 가이드가 도움이 되셨나요?</h2>
              <p className="text-blue-100 font-bold mb-12 text-lg">여러분의 따뜻한 추천 한 번이 작성자에게는 큰 힘이 됩니다.</p>
              <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                <button 
-                  onClick={handleHelpful}
-                  className={`px-12 py-5 rounded-[2rem] font-black text-lg flex items-center gap-4 transition-all transform active:scale-95 ${isHelpfulClicked ? 'bg-white text-blue-600 shadow-xl shadow-white/20' : 'bg-white/10 hover:bg-white text-white hover:text-blue-600 border-2 border-white/20'}`}
-                >
+                <button onClick={handleHelpful} className={`px-12 py-5 rounded-[2rem] font-black text-lg flex items-center gap-4 transition-all transform active:scale-95 ${isHelpfulClicked ? 'bg-white text-blue-600 shadow-xl shadow-white/20' : 'bg-white/10 hover:bg-white text-white hover:text-blue-600 border-2 border-white/20'}`}>
                   <ThumbsUp className={`w-6 h-6 ${isHelpfulClicked ? 'fill-blue-600' : ''}`} />
                   {isHelpfulClicked ? '추천 완료!' : '정말 도움됐어요'} ({helpfulCount})
                 </button>
@@ -390,7 +395,6 @@ export default function PostDetailPage({
               댓글 피드백 <span className="text-blue-600">{comments.length}</span>
             </h2>
           </div>
-
           <div className="bg-white rounded-[3.5rem] p-10 md:p-14 shadow-xl shadow-blue-900/5 border border-gray-50">
             {user ? (
               <form onSubmit={handleAddComment} className="space-y-6">
@@ -412,7 +416,6 @@ export default function PostDetailPage({
               </div>
             )}
           </div>
-
           <div className="space-y-6">
             {comments.map((comment) => (
               <div key={comment.id} className="bg-white rounded-[3rem] p-10 shadow-sm border border-gray-100 animate-in fade-in slide-in-from-bottom-4">
@@ -432,7 +435,17 @@ export default function PostDetailPage({
                      </div>
                    )}
                 </div>
-                <p className="text-gray-600 font-bold text-lg leading-relaxed pl-2">{comment.content}</p>
+                {editingCommentId === comment.id ? (
+                  <div className="space-y-3">
+                    <textarea value={editingContent} onChange={(e) => setEditingContent(e.target.value)} className="w-full p-4 bg-gray-50 border-blue-100 border rounded-2xl focus:ring-2 focus:ring-blue-500 font-medium" rows={2} />
+                    <div className="flex justify-end gap-2">
+                       <button onClick={() => setEditingCommentId(null)} className="text-sm font-bold text-gray-400">취소</button>
+                       <button onClick={() => handleUpdateComment(comment.id)} className="text-sm font-bold text-blue-600">저장</button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-600 font-bold text-lg leading-relaxed pl-2">{comment.content}</p>
+                )}
               </div>
             ))}
           </div>
