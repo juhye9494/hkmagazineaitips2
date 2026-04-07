@@ -105,10 +105,18 @@ export default function PostDetailPage({
     }
   }, [id, supabase])
 
+  const handleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(window.location.pathname)}`,
+      },
+    })
+  }
+
   const handleHelpful = async () => {
     if (!user) {
-      alert('추천을 위해 로그인이 필요합니다. 홈 화면으로 이동합니다.')
-      router.push('/')
+      handleLogin()
       return
     }
     
@@ -147,8 +155,7 @@ export default function PostDetailPage({
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) {
-      alert('로그인이 필요한 기능입니다.')
-      router.push('/')
+      handleLogin()
       return
     }
     if (!newComment.trim() || isSubmitting) return
