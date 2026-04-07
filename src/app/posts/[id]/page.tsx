@@ -327,7 +327,7 @@ export default function PostDetailPage({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {tips.map((tip: string, i: number) => (
-                <div key={i} className="flex items-start gap-4 p-6 bg-orange-50/30 rounded-3xl border border-orange-100/50 hover:bg-orange-50 transition-colors">
+                <div key={i} className="w-fit flex items-start gap-4 p-6 bg-orange-50/30 rounded-3xl border border-orange-100/50 hover:bg-orange-50 transition-colors">
                   <div className="w-2 h-2 rounded-full bg-orange-400 mt-2.5 shrink-0 shadow-sm" />
                   <p className="text-gray-700 font-bold leading-relaxed">{tip}</p>
                 </div>
@@ -345,7 +345,7 @@ export default function PostDetailPage({
                  </div>
                  <h2 className="text-xl font-black text-gray-900">사용 도구</h2>
                </div>
-               <div className="flex flex-wrap gap-2 mt-auto">
+               <div className="flex flex-wrap gap-2">
                  {tools.map((tool: string, i: number) => (
                    <span key={i} className="px-5 py-2.5 bg-purple-50 text-purple-600 font-black rounded-xl text-xs border border-purple-100 shadow-sm">
                      {tool}
@@ -363,7 +363,7 @@ export default function PostDetailPage({
                  </div>
                  <h2 className="text-xl font-black text-gray-900">참고 자료</h2>
                </div>
-               <div className="space-y-3 mt-auto">
+               <div className="space-y-3">
                  {links.map((link: string, i: number) => (
                    <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-green-50/50 rounded-2xl group hover:bg-green-100 transition-all border border-green-50">
                       <div className="flex-1 truncate text-xs font-black text-green-700">{link}</div>
@@ -375,16 +375,25 @@ export default function PostDetailPage({
            )}
         </div>
 
-        <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[4rem] p-16 text-center text-white shadow-[0_30px_60px_-15px_rgba(37,99,235,0.4)] relative overflow-hidden">
-           <div className="relative z-10">
-             <h2 className="text-4xl font-black mb-4 tracking-tight">이 가이드가 도움이 되셨나요?</h2>
-             <p className="text-blue-100 font-bold mb-12 text-lg">여러분의 따뜻한 추천 한 번이 작성자에게는 큰 힘이 됩니다.</p>
-             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                <button onClick={handleHelpful} className={`px-12 py-5 rounded-[2rem] font-black text-lg flex items-center gap-4 transition-all transform active:scale-95 ${isHelpfulClicked ? 'bg-white text-blue-600 shadow-xl shadow-white/20' : 'bg-white/10 hover:bg-white text-white hover:text-blue-600 border-2 border-white/20'}`}>
-                  <ThumbsUp className={`w-6 h-6 ${isHelpfulClicked ? 'fill-blue-600' : ''}`} />
-                  {isHelpfulClicked ? '추천 완료!' : '정말 도움됐어요'} ({helpfulCount})
-                </button>
-             </div>
+        <div className="flex flex-col items-center gap-8">
+           <button 
+             onClick={() => router.push('/')}
+             className="px-10 py-4 bg-white text-gray-600 font-black rounded-[1.5rem] border-2 border-gray-100 hover:bg-gray-50 hover:border-gray-200 transition-all flex items-center gap-3 text-sm shadow-sm"
+           >
+             <ArrowLeft className="w-4 h-4" /> 다른 가이드 구경하기
+           </button>
+
+           <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-[4rem] p-16 text-center text-white shadow-[0_30px_60px_-15px_rgba(37,99,235,0.4)] relative overflow-hidden w-full">
+              <div className="relative z-10">
+                <h2 className="text-4xl font-black mb-4 tracking-tight">이 가이드가 도움이 되셨나요?</h2>
+                <p className="text-blue-100 font-bold mb-12 text-lg">여러분의 따뜻한 추천 한 번이 작성자에게는 큰 힘이 됩니다.</p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+                   <button onClick={handleHelpful} className={`px-12 py-5 rounded-[2rem] font-black text-lg flex items-center gap-4 transition-all transform active:scale-95 ${isHelpfulClicked ? 'bg-white text-blue-600 shadow-xl shadow-white/20' : 'bg-white/10 hover:bg-white text-white hover:text-blue-600 border-2 border-white/20'}`}>
+                     <ThumbsUp className={`w-6 h-6 ${isHelpfulClicked ? 'fill-blue-600' : ''}`} />
+                     {isHelpfulClicked ? '추천 완료!' : '정말 도움됐어요'} ({helpfulCount})
+                   </button>
+                </div>
+              </div>
            </div>
         </div>
 
