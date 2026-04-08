@@ -74,9 +74,46 @@ export function Home() {
         throw new Error('대표 이미지 업로드 URL을 생성하지 못했습니다.');
       }
 
-      // 2. 단계별 이미지 업로드
+      // 2. 대표 동영상 업로드 (선택)
+      let uploadedVideoUrl = '';
+      if (guideData.video && guideData.video.startsWith('data:')) {
+        try {
+          setUploadProgress('대표 동영상 업로드 중...');
+          const videoFile = dataURLtoFile(guideData.video, `video-${Date.now()}.mp4`);
+          uploadedVideoUrl = await uploadImageToFirebase(videoFile, 'videos');
+        } catch (error) {
+          console.error('대표 동영상 업로드 실패:', error);
+          // 동영상은 선택사항이므로 실패해도 가이드는 생성할 수 있게 하거나, 사용자에게 알림
+        }
+      } else if (guideData.video) {
+        uploadedVideoUrl = guideData.video;
+      }
+
+      // 3. 파일 첨부 업로드 (선택)
+      const uploadedAttachments = await Promise.all(
+        (guideData.attachments || []).map(async (file, index) => {
+          if (file.url.startsWith('data:')) {
+            try {
+              setUploadProgress(`첨부 파일 ${index + 1} 업로드 중...`);
+              const blobFile = dataURLtoFile(file.url, file.name);
+              const url = await uploadImageToFirebase(blobFile, 'attachments');
+              return { name: file.name, url };
+            } catch (error) {
+              console.error(`첨부 파일 ${index + 1} 업로드 실패:`, error);
+              return null;
+            }
+          }
+          return file;
+        })
+      );
+      const filteredAttachments = uploadedAttachments.filter((a): a is { name: string; url: string } => a !== null);
+
+      // 4. 단계별 미디어 업로드
       const updatedSteps = await Promise.all(
         guideData.steps.map(async (step, stepIndex) => {
+          const updatedStep = { ...step };
+
+          // 단계별 이미지 업로드
           if (step.images && step.images.length > 0) {
             setUploadProgress(`단계 ${stepIndex + 1} 이미지 업로드 중...`);
             const uploadedImages = await Promise.all(
@@ -84,18 +121,30 @@ export function Home() {
                 if (img.startsWith('data:')) {
                   try {
                     const imageFile = dataURLtoFile(img, `step-${stepIndex}-${imgIndex}-${Date.now()}.png`);
-                    return await uploadImageToFirebase(imageFile, 'guide-steps');
+                    return await uploadImageToFirebase(imageFile, 'guide-steps/images');
                   } catch (error) {
                     console.error(`단계 ${stepIndex + 1} 이미지 ${imgIndex + 1} 업로드 실패:`, error);
-                    throw new Error(`단계 ${stepIndex + 1}의 이미지를 업로드하는 데 실패했습니다.`);
+                    return img;
                   }
                 }
                 return img;
               })
             );
-            return { ...step, images: uploadedImages };
+            updatedStep.images = uploadedImages;
           }
-          return step;
+
+          // 단계별 동영상 업로드
+          if (step.video && step.video.startsWith('data:')) {
+            try {
+              setUploadProgress(`단계 ${stepIndex + 1} 동영상 업로드 중...`);
+              const videoFile = dataURLtoFile(step.video, `step-video-${stepIndex}-${Date.now()}.mp4`);
+              updatedStep.video = await uploadImageToFirebase(videoFile, 'guide-steps/videos');
+            } catch (error) {
+              console.error(`단계 ${stepIndex + 1} 동영상 업로드 실패:`, error);
+            }
+          }
+
+          return updatedStep;
         })
       );
 
@@ -114,6 +163,8 @@ export function Home() {
         tools: guideData.tools,
         references: guideData.references,
         image: uploadedImageUrl,
+        video: uploadedVideoUrl || undefined,
+        attachments: filteredAttachments,
         password: guideData.password,
       };
 

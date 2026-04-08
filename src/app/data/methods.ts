@@ -12,11 +12,14 @@ export interface Method {
     title: string;
     content: string;
     images?: string[];
+    video?: string;
   }[];
   tips: string[];
   tools: string[];
   references?: { title: string; url: string }[];
   image?: string;
+  video?: string;
+  attachments?: { name: string; url: string }[];
   password?: string;
 }
 
