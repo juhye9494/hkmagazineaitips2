@@ -464,21 +464,21 @@ export default function PostDetailPage({
            </div>
         </div>
 
-        <section className="pt-20 space-y-10">
+        <section className="pt-12 space-y-8">
           <div className="flex items-center justify-between px-6">
             <h2 className="text-2xl font-black text-gray-900 flex items-center gap-4">
               <MessageCircle className="w-8 h-8 text-blue-600" />
               댓글 피드백 <span className="text-blue-600">{comments.length}</span>
             </h2>
           </div>
-          <div className="bg-white rounded-[3.5rem] p-10 md:p-14 shadow-xl shadow-blue-900/5 border border-gray-50">
+          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-xl shadow-blue-900/5 border border-gray-50">
             {user ? (
               <form onSubmit={handleAddComment} className="space-y-6">
                 <textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder={`${user.user_metadata?.full_name || '동료'}님, 응원의 메시지나 질문을 남겨주세요...`}
-                  className="w-full p-8 bg-gray-50/50 border-2 border-gray-50 rounded-[2.5rem] focus:ring-4 focus:ring-blue-100 focus:bg-white transition-all font-bold text-lg resize-none"
+                  className="w-full p-6 bg-gray-50/50 border-2 border-gray-50 rounded-[1.5rem] focus:ring-4 focus:ring-blue-100 focus:bg-white transition-all font-bold text-lg resize-none"
                   rows={3}
                 />
                 <div className="flex justify-end">
@@ -492,12 +492,12 @@ export default function PostDetailPage({
               </div>
             )}
           </div>
-          <div className="space-y-8">
+          <div className="space-y-4">
             {parentComments.map((comment) => (
               <div key={comment.id} className="space-y-4">
                 {/* Parent Comment */}
-                <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-gray-100 animate-in fade-in slide-in-from-left-4">
-                  <div className="flex items-start justify-between mb-6">
+                <div className="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-gray-100 animate-in fade-in slide-in-from-left-4">
+                  <div className="flex items-start justify-between mb-4">
                      <div className="flex items-center gap-5">
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg">
                           {comment.user_name ? comment.user_name[0] : 'U'}
@@ -537,7 +537,7 @@ export default function PostDetailPage({
 
                 {/* Reply Input Form */}
                 {replyToId === comment.id && (
-                  <div className="ml-16 mr-6 bg-blue-50/50 rounded-[2rem] p-8 border border-blue-100 animate-in slide-in-from-top-4">
+                  <div className="ml-16 mr-6 bg-blue-50/50 rounded-[1.5rem] p-6 border border-blue-100 animate-in slide-in-from-top-4">
                     <div className="flex items-center gap-3 mb-4 text-blue-600">
                        <MessageCircle className="w-4 h-4" />
                        <span className="text-xs font-black uppercase tracking-widest">답글 남기기</span>
@@ -567,9 +567,9 @@ export default function PostDetailPage({
                 )}
 
                 {/* Render Replies */}
-                <div className="space-y-4 ml-16">
+                <div className="space-y-3 ml-16">
                   {replies.filter(r => r.parent_id === comment.id).map(reply => (
-                    <div key={reply.id} className="bg-gray-50/50 rounded-[2.5rem] p-8 border border-gray-100 flex gap-4 animate-in fade-in slide-in-from-left-4 relative">
+                    <div key={reply.id} className="bg-gray-50/50 rounded-[1.5rem] p-5 border border-gray-100 flex gap-4 animate-in fade-in slide-in-from-left-4 relative">
                        <div className="absolute -left-6 top-10 w-6 h-px bg-gray-200" />
                        <div className="w-12 h-12 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-gray-400 font-black text-sm shadow-sm shrink-0">
                          {reply.user_name ? reply.user_name[0] : 'U'}
