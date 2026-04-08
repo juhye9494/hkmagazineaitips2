@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { uploadImage } from '@/lib/storage-utils'
+import { uploadImage, uploadFile } from '@/lib/storage-utils'
 import { 
   Plus, 
   Trash2, 
@@ -18,8 +18,15 @@ import {
   Camera,
   Upload,
   CheckCircle2,
-  X
+  X,
+  Film,
+  Paperclip,
+  FileText
 } from 'lucide-react'
+
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024;  // 20MB
 
 const CATEGORIES = ['전체', '문서작성', '디자인', '멀티미디어', '개발', '마케팅', '데이터분석', '고객관리', '기타']
 
@@ -43,6 +50,11 @@ interface Step {
   image_urls: string[];
   image_files?: File[];
   preview_urls?: string[];
+  video_url?: string;
+  video_file?: File;
+  video_preview?: string;
+  attachments?: { name: string; url: string }[];
+  attachment_files?: File[];
 }
 
 export default function NewPostPage() {
@@ -106,11 +118,36 @@ export default function NewPostPage() {
 
     if (field === 'image_files') {
       const files = Array.from(value as FileList)
-      if (files.length > 0) {
-        const newPreviews = files.map(f => URL.createObjectURL(f))
-        step.image_files = [...(step.image_files || []), ...files]
+      const validFiles = files.filter(f => {
+        if (f.size > MAX_IMAGE_SIZE) {
+          alert(`'${f.name}' 이미지가 10MB를 초과하여 제외되었습니다.`);
+          return false;
+        }
+        return true;
+      });
+      if (validFiles.length > 0) {
+        const newPreviews = validFiles.map(f => URL.createObjectURL(f))
+        step.image_files = [...(step.image_files || []), ...validFiles]
         step.preview_urls = [...(step.preview_urls || []), ...newPreviews]
       }
+    } else if (field === 'video_file') {
+      const file = value as File;
+      if (file.size > MAX_VIDEO_SIZE) {
+        alert('동영상 파일 크기는 50MB를 초과할 수 없습니다.');
+        return;
+      }
+      step.video_file = file;
+      step.video_preview = URL.createObjectURL(file);
+    } else if (field === 'attachment_files') {
+      const files = Array.from(value as FileList)
+      const validFiles = files.filter(f => {
+        if (f.size > MAX_FILE_SIZE) {
+          alert(`'${f.name}' 파일이 20MB를 초과하여 제외되었습니다.`);
+          return false;
+        }
+        return true;
+      });
+      step.attachment_files = [...(step.attachment_files || []), ...validFiles];
     } else if (field === 'title' || field === 'content') {
       step[field] = value as string
     }
@@ -131,9 +168,26 @@ export default function NewPostPage() {
   const handleFeaturedImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      if (file.size > MAX_IMAGE_SIZE) {
+        alert('대표 이미지는 10MB를 초과할 수 없습니다.');
+        return;
+      }
       setFeaturedImage(file)
       setFeaturedPreview(URL.createObjectURL(file))
     }
+  }
+
+  const removeStepVideo = (stepIdx: number) => {
+    const newSteps = [...steps];
+    newSteps[stepIdx].video_file = undefined;
+    newSteps[stepIdx].video_preview = undefined;
+    setSteps(newSteps);
+  }
+
+  const removeStepAttachment = (stepIdx: number, fileIdx: number) => {
+    const newSteps = [...steps];
+    newSteps[stepIdx].attachment_files = newSteps[stepIdx].attachment_files?.filter((_, i) => i !== fileIdx);
+    setSteps(newSteps);
   }
 
   const addTip = () => setTips([...tips, ''])
@@ -196,20 +250,40 @@ export default function NewPostPage() {
         featured_image_url = await uploadImage(featuredImage)
       }
 
-      // 2. Step Images Upload (Multi)
-      const finalSteps = await Promise.all(steps.map(async (step) => {
-        const uploadedUrls = []
+      // 2. Step Media Upload
+      const finalSteps = await Promise.all(steps.map(async (step, idx) => {
+        // Upload Images
+        const uploadedImageUrls = []
         if (step.image_files && step.image_files.length > 0) {
           for (const file of step.image_files) {
             const url = await uploadImage(file)
-            uploadedUrls.push(url)
+            uploadedImageUrls.push(url)
           }
         }
+
+        // Upload Video
+        let video_url = ''
+        if (step.video_file) {
+          const result = await uploadFile(step.video_file, 'post-videos')
+          video_url = result.url
+        }
+
+        // Upload Attachments
+        const attachments = []
+        if (step.attachment_files && step.attachment_files.length > 0) {
+          for (const file of step.attachment_files) {
+            const result = await uploadFile(file, 'post-attachments')
+            attachments.push({ name: result.name, url: result.url })
+          }
+        }
+
         return {
           title: step.title,
           content: step.content,
-          image_urls: uploadedUrls,
-          image_url: uploadedUrls[0] || '' // Backward compatibility
+          image_urls: uploadedImageUrls,
+          image_url: uploadedImageUrls[0] || '',
+          video_url,
+          attachments
         }
       }))
 
@@ -426,8 +500,76 @@ export default function NewPostPage() {
                         </label>
                       </div>
                     </div>
+
+                    {/* Step Media Upload Buttons (Video & File) */}
+                    <div className="flex flex-wrap gap-4 pt-4 border-t border-gray-50">
+                      <div>
+                        <label className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-xl cursor-pointer hover:bg-purple-100 transition-colors text-sm font-bold">
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="video/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) updateStep(index, 'video_file', file);
+                            }}
+                          />
+                          <Film className="w-4 h-4" />
+                          동영상 추가
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-600 rounded-xl cursor-pointer hover:bg-green-100 transition-colors text-sm font-bold">
+                          <input 
+                            type="file" 
+                            multiple
+                            className="hidden" 
+                            onChange={(e) => updateStep(index, 'attachment_files', e.target.files)}
+                          />
+                          <Paperclip className="w-4 h-4" />
+                          파일 첨부
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Step Video Preview */}
+                    {step.video_preview && (
+                      <div className="relative rounded-2xl overflow-hidden bg-black border border-gray-100 aspect-video">
+                        <video src={step.video_preview} controls className="w-full h-full object-contain" />
+                        <button 
+                          onClick={() => removeStepVideo(index)}
+                          className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-xl hover:bg-black/70 transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Step Attachments List */}
+                    {step.attachment_files && step.attachment_files.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest">첨부 파일 목록</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {step.attachment_files.map((file, fIdx) => (
+                            <div key={fIdx} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 group/file">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <FileText className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                <span className="text-xs font-bold text-gray-600 truncate">{file.name}</span>
+                              </div>
+                              <button 
+                                onClick={() => removeStepAttachment(index, fIdx)}
+                                className="text-gray-300 hover:text-red-500 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-               </div>
+                </div>
              ))}
 
              {/* Add Step Button Moved to Bottom */}

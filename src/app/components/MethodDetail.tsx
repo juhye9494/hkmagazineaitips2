@@ -76,107 +76,38 @@ export function MethodDetail() {
     if (!method) return;
     try {
       setIsUploading(true);
-      setUploadProgress('이미지 업로드 중...');
+      setUploadProgress('가이드 수정 사항 저장 중...');
 
-      let uploadedImageUrl = '';
-      if (guideData.image && guideData.image.startsWith('data:')) {
-        try {
-          setUploadProgress('대표 이미지 업로드 중...');
-          const imageFile = dataURLtoFile(guideData.image, `thumbnail-${Date.now()}.png`);
-          uploadedImageUrl = await uploadImageToFirebase(imageFile, 'thumbnails');
-        } catch (error) {
-          throw new Error('대표 이미지 업로드에 실패했습니다.');
-        }
-      } else if (guideData.image) {
-        uploadedImageUrl = guideData.image; 
-      }
-
-      let uploadedVideoUrl = '';
-      if (guideData.video && guideData.video.startsWith('data:')) {
-        try {
-          setUploadProgress('대표 동영상 업로드 중...');
-          const videoFile = dataURLtoFile(guideData.video, `video-${Date.now()}.mp4`);
-          uploadedVideoUrl = await uploadImageToFirebase(videoFile, 'videos');
-        } catch (error) {
-          console.error('대표 동영상 업로드 실패:', error);
-        }
-      } else if (guideData.video) {
-        uploadedVideoUrl = guideData.video;
-      }
-
-      const uploadedAttachments = await Promise.all(
-        (guideData.attachments || []).map(async (file, index) => {
-          if (file.url.startsWith('data:')) {
-            try {
-              setUploadProgress(`첨부 파일 ${index + 1} 업로드 중...`);
-              const blobFile = dataURLtoFile(file.url, file.name);
-              const url = await uploadImageToFirebase(blobFile, 'attachments');
-              return { name: file.name, url };
-            } catch (error) {
-              console.error(`첨부 파일 ${index + 1} 업로드 실패:`, error);
-              return null;
-            }
-          }
-          return file;
-        })
-      );
-      const filteredAttachments = uploadedAttachments.filter((a): a is { name: string; url: string } => a !== null);
-
-      const updatedSteps = await Promise.all(
-        guideData.steps.map(async (step, stepIndex) => {
-          const updatedStep = { ...step };
-
-          if (step.images && step.images.length > 0) {
-            setUploadProgress(`단계 ${stepIndex + 1} 이미지 업로드 중...`);
-            const uploadedImages = await Promise.all(
-              step.images.map(async (img, imgIndex) => {
-                if (img.startsWith('data:')) {
-                  const imageFile = dataURLtoFile(img, `step-${stepIndex}-${imgIndex}-${Date.now()}.png`);
-                  return await uploadImageToFirebase(imageFile, 'guide-steps/images');
-                }
-                return img;
-              })
-            );
-            updatedStep.images = uploadedImages;
-          }
-
-          if (step.video && step.video.startsWith('data:')) {
-            try {
-              setUploadProgress(`단계 ${stepIndex + 1} 동영상 업로드 중...`);
-              const videoFile = dataURLtoFile(step.video, `step-video-${stepIndex}-${Date.now()}.mp4`);
-              updatedStep.video = await uploadImageToFirebase(videoFile, 'guide-steps/videos');
-            } catch (error) {
-              console.error(`단계 ${stepIndex + 1} 동영상 업로드 실패:`, error);
-            }
-          }
-
-          return updatedStep;
-        })
-      );
-
-      setUploadProgress('가이드 저장 중...');
       const updatePayload: Partial<Method> = {
         title: guideData.title,
         author: guideData.author,
         tag: guideData.tag,
         description: guideData.description,
-        steps: updatedSteps,
+        steps: guideData.steps,
         tips: guideData.tips,
         tools: guideData.tools,
         references: guideData.references,
-        image: uploadedImageUrl || undefined,
-        video: uploadedVideoUrl || undefined,
-        attachments: filteredAttachments,
+        image: guideData.image,
+        video: guideData.video,
+        attachments: guideData.attachments,
         password: guideData.password,
       };
 
       // Remove undefined values
-      const cleanPayload = Object.fromEntries(Object.entries(updatePayload).filter(([_, v]) => v !== undefined));
+      const cleanPayload = Object.fromEntries(
+        Object.entries(updatePayload).filter(([_, v]) => v !== undefined)
+      );
 
       await updateFirebaseGuide(method.id, cleanPayload);
       
       // Update local state to reflect changes instantly
-      const updatedMethod = { ...method, ...cleanPayload, icon: iconMap[guideData.tag] || Sparkles, tagColor: tagColorMap[guideData.tag] || 'bg-blue-100 text-blue-700' } as Method;
+      const updatedMethod = { 
+        ...method, 
+        ...cleanPayload, 
+        icon: iconMap[guideData.tag] || Sparkles, 
+        tagColor: tagColorMap[guideData.tag] || 'bg-blue-100 text-blue-700' 
+      } as Method;
+      
       setAllMethods(prev => prev.map(m => m.id === method.id ? updatedMethod : m));
       
       setIsUploading(false);

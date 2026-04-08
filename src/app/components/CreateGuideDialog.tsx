@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CategoryManager } from './CategoryManager';
 import { getFirebaseCategories } from '../../lib/api';
-import { X, Plus, Minus, Upload, FileText, Image as ImageIcon, Video, Code, Loader2, File, Film } from 'lucide-react';
-import { uploadImageToFirebase } from '../../lib/uploadImage';
+import { X, Plus, Minus, Upload, FileText, Image as ImageIcon, Video, Code, Loader2, File as FileIcon, Film } from 'lucide-react';
+import { uploadFileWithProgress } from '../../lib/uploadImage';
 import { Method } from '../data/methods';
 
 interface CreateGuideDialogProps {
@@ -56,6 +56,15 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
   const [attachments, setAttachments] = useState<{ name: string; url: string }[]>([]);
   const [password, setPassword] = useState('');
   const [isUploadingLocal, setIsUploadingLocal] = useState(false);
+  const [imageFile, setImageFile] = useState<File | undefined>();
+  const [videoFile, setVideoFile] = useState<File | undefined>();
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [stepImageFiles, setStepImageFiles] = useState<{ [key: number]: File[] }>({});
+  const [stepVideoFiles, setStepVideoFiles] = useState<{ [key: number]: File | undefined }>({});
+
+  const [uploadProgressValue, setUploadProgressValue] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -126,11 +135,9 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
         alert('이미지 파일 크기는 10MB를 초과할 수 없습니다.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setImageFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setImage(previewUrl);
     }
   };
 
@@ -141,32 +148,33 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
         alert('동영상 파일 크기는 50MB를 초과할 수 없습니다.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setVideo(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setVideoFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setVideo(previewUrl);
     }
   };
 
   const handleAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      Array.from(files).forEach((file) => {
+      const newFiles = Array.from(files).filter(file => {
         if (file.size > MAX_FILE_SIZE) {
           alert(`'${file.name}' 파일이 너무 큽니다. 첨부 파일은 20MB를 초과할 수 없습니다.`);
-          return;
+          return false;
         }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setAttachments(prev => [...prev, { name: file.name, url: reader.result as string }]);
-        };
-        reader.readAsDataURL(file);
+        return true;
       });
+      
+      setAttachmentFiles(prev => [...prev, ...newFiles]);
+      setAttachments(prev => [
+        ...prev, 
+        ...newFiles.map(f => ({ name: f.name, url: URL.createObjectURL(f) }))
+      ]);
     }
   };
 
   const removeAttachment = (index: number) => {
+    setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -183,23 +191,15 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
 
       if (validFiles.length === 0) return;
 
-      const newImages: string[] = [];
-      let filesProcessed = 0;
+      setStepImageFiles(prev => ({
+        ...prev,
+        [stepIndex]: [...(prev[stepIndex] || []), ...validFiles]
+      }));
 
-      validFiles.forEach((file) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          newImages.push(reader.result as string);
-          filesProcessed++;
-
-          if (filesProcessed === validFiles.length) {
-            const newSteps = [...steps];
-            newSteps[stepIndex].images = [...(newSteps[stepIndex].images || []), ...newImages];
-            setSteps(newSteps);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+      const newPreviews = validFiles.map(f => URL.createObjectURL(f));
+      const newSteps = [...steps];
+      newSteps[stepIndex].images = [...(newSteps[stepIndex].images || []), ...newPreviews];
+      setSteps(newSteps);
     }
   };
 
@@ -210,23 +210,30 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
         alert('동영상 파일 크기는 50MB를 초과할 수 없습니다.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const newSteps = [...steps];
-        newSteps[stepIndex].video = reader.result as string;
-        setSteps(newSteps);
-      };
-      reader.readAsDataURL(file);
+      setStepVideoFiles(prev => ({ ...prev, [stepIndex]: file }));
+      const previewUrl = URL.createObjectURL(file);
+      const newSteps = [...steps];
+      newSteps[stepIndex].video = previewUrl;
+      setSteps(newSteps);
     }
   };
 
   const removeStepVideo = (stepIndex: number) => {
+    setStepVideoFiles(prev => {
+      const next = { ...prev };
+      delete next[stepIndex];
+      return next;
+    });
     const newSteps = [...steps];
     newSteps[stepIndex].video = undefined;
     setSteps(newSteps);
   };
 
   const removeStepImage = (stepIndex: number, imageIndex: number) => {
+    setStepImageFiles(prev => ({
+      ...prev,
+      [stepIndex]: prev[stepIndex]?.filter((_, i) => i !== imageIndex) || []
+    }));
     const newSteps = [...steps];
     newSteps[stepIndex].images = newSteps[stepIndex].images?.filter((_, i) => i !== imageIndex);
     setSteps(newSteps);
@@ -296,32 +303,89 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
     setReferences(newReferences);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title || !author || !selectedCategory || !description || !image) {
+    if (!title || !author || !selectedCategory || !description || (!image && !imageFile)) {
       alert('대표 이미지를 포함한 모든 필수 항목을 입력해주세요.');
       return;
     }
 
-    const guideData: NewGuideData = {
-      title,
-      author,
-      tag: selectedCategory,
-      description,
-      steps: steps.filter(s => s.title && s.content),
-      tips: tips.filter(t => t.trim()),
-      tools: tools.filter(t => t.trim()),
-      references: references.filter(r => r.title && r.url),
-      image,
-      video,
-      attachments,
-      password,
-    };
+    try {
+      setUploadProgressValue(0);
+      setUploadStatus('준비 중...');
+      
+      // Upload images and files to Firebase
+      let finalImageUrl = image || '';
+      if (imageFile) {
+        setUploadStatus('대표 이미지 업로드 중...');
+        finalImageUrl = await uploadFileWithProgress(imageFile, 'guides', (p) => setUploadProgressValue(p));
+      }
 
-    onSubmit(guideData);
-    resetForm();
-    onClose();
+      let finalVideoUrl = video;
+      if (videoFile) {
+        setUploadStatus('대표 동영상 업로드 중...');
+        finalVideoUrl = await uploadFileWithProgress(videoFile, 'videos', (p) => setUploadProgressValue(p));
+      }
+
+      const finalAttachments = [];
+      for (let i = 0; i < attachmentFiles.length; i++) {
+        setUploadStatus(`첨부 파일 업로드 중 (${i + 1}/${attachmentFiles.length})...`);
+        const url = await uploadFileWithProgress(attachmentFiles[i], 'attachments', (p) => setUploadProgressValue(p));
+        finalAttachments.push({ name: attachmentFiles[i].name, url });
+      }
+
+      const finalSteps = [];
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const stepFiles = stepImageFiles[i] || [];
+        const stepVideoFile = stepVideoFiles[i];
+        
+        const uploadedStepImages = [];
+        for (let j = 0; j < stepFiles.length; j++) {
+          setUploadStatus(`${i + 1}단계 이미지 업로드 중 (${j + 1}/${stepFiles.length})...`);
+          const url = await uploadFileWithProgress(stepFiles[j], 'steps', (p) => setUploadProgressValue(p));
+          uploadedStepImages.push(url);
+        }
+
+        let uploadedStepVideo = step.video;
+        if (stepVideoFile) {
+          setUploadStatus(`${i + 1}단계 동영상 업로드 중...`);
+          uploadedStepVideo = await uploadFileWithProgress(stepVideoFile, 'steps', (p) => setUploadProgressValue(p));
+        }
+
+        finalSteps.push({
+          ...step,
+          images: uploadedStepImages.length > 0 ? uploadedStepImages : step.images,
+          video: uploadedStepVideo
+        });
+      }
+
+      const guideData: NewGuideData = {
+        title,
+        author,
+        tag: selectedCategory,
+        description,
+        steps: finalSteps.filter(s => s.title && s.content),
+        tips: tips.filter(t => t.trim()),
+        tools: tools.filter(t => t.trim()),
+        references: references.filter(r => r.title && r.url),
+        image: finalImageUrl,
+        video: finalVideoUrl,
+        attachments: finalAttachments,
+        password,
+      };
+
+      onSubmit(guideData);
+      resetForm();
+      onClose();
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('파일 업로드 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    } finally {
+      setUploadProgressValue(0);
+      setUploadStatus('');
+    }
   };
 
   const resetForm = () => {
@@ -337,6 +401,11 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
     setVideo(undefined);
     setAttachments([]);
     setPassword('');
+    setImageFile(undefined);
+    setVideoFile(undefined);
+    setAttachmentFiles([]);
+    setStepImageFiles({});
+    setStepVideoFiles({});
   };
 
   return (
@@ -363,18 +432,18 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
                   <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
                   <div className="text-center">
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      이미지 업로드 중...
+                      {uploadStatus || '파일 업로드 중...'}
                     </h3>
-                    <p className="text-sm text-gray-600">
-                      {uploadProgress || '잠시만 기다려주세요'}
+                    <p className="text-sm text-gray-600 mb-1">
+                      {uploadProgressValue}% 완료
                     </p>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                     <motion.div
                       className="h-full bg-blue-600"
                       initial={{ width: '0%' }}
-                      animate={{ width: '100%' }}
-                      transition={{ duration: 2, repeat: Infinity }}
+                      animate={{ width: `${uploadProgressValue}%` }}
+                      transition={{ duration: 0.3 }}
                     />
                   </div>
                 </div>
@@ -490,7 +559,7 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
                           onClick={() => fileInputRef.current?.click()}
                           className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-blue-600"
                         >
-                          <ImageIcon className="w-5 h-5" />
+                          <FileIcon className="w-5 h-5" />
                           이미지 업로드
                         </button>
                         {image && (
@@ -560,7 +629,7 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
                           onClick={() => attachmentInputRef.current?.click()}
                           className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-green-600"
                         >
-                          <File className="w-5 h-5" />
+                          <FileIcon className="w-5 h-5" />
                           파일 업로드
                         </button>
                         {attachments.length > 0 && (
@@ -568,7 +637,7 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
                             {attachments.map((file, idx) => (
                               <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <FileIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                                   <span className="text-sm text-gray-700 truncate">{file.name}</span>
                                 </div>
                                 <button

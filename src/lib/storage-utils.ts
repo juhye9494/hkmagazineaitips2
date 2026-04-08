@@ -58,7 +58,7 @@ async function compressImage(file: File): Promise<File | Blob> {
 export async function uploadImage(file: File) {
   const supabase = createClient()
   
-  // 업로드 전 자동 압축 수행
+  // 업로드 전 자동 압축 수행 (이미지 전용)
   const optimizedFile = await compressImage(file);
   
   const fileExt = optimizedFile instanceof File ? optimizedFile.name.split('.').pop() : 'jpg'
@@ -79,4 +79,33 @@ export async function uploadImage(file: File) {
     .getPublicUrl(filePath)
 
   return publicUrl
+}
+
+/**
+ * 동영상이나 문서를 압축 없이 원본 그대로 업로드합니다.
+ */
+export async function uploadFile(file: File, folder: string = 'post-files') {
+  const supabase = createClient()
+  
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${Math.random()}.${fileExt}`
+  const filePath = `${folder}/${fileName}`
+
+  const { data, error } = await supabase.storage
+    .from('images') // 기본적으로 'images' 버킷을 사용하되 폴더로 구분
+    .upload(filePath, file)
+
+  if (error) {
+    console.error('파일 업로드 실패:', error.message)
+    throw error
+  }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('images')
+    .getPublicUrl(filePath)
+
+  return {
+    url: publicUrl,
+    name: file.name
+  }
 }

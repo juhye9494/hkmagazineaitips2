@@ -13,11 +13,18 @@ import {
   Tag,
   Clock,
   Wrench,
-  Trash2
+  Trash2,
+  Film,
+  Paperclip,
+  FileText
 } from 'lucide-react'
-import { uploadImage } from '@/lib/storage-utils'
+import { uploadImage, uploadFile } from '@/lib/storage-utils'
 
 const CATEGORIES = ['전체', '문서작성', '디자인', '멀티미디어', '개발', '마케팅', '데이터분석', '고객관리', '기타']
+
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024;  // 20MB
 
 const AI_TOOLS_LIST = [
   { name: 'ChatGPT', keywords: ['G', '챗', '지피티', 'GPT', 'chatgpt'] },
@@ -39,6 +46,11 @@ interface Step {
   image_urls: string[];
   image_files?: File[];
   preview_urls?: string[];
+  video_url?: string;
+  video_file?: File;
+  video_preview?: string;
+  attachments?: { name: string; url: string }[];
+  attachment_files?: File[];
 }
 
 interface EditGuideDialogProps {
@@ -63,7 +75,10 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
       title: s.title || '',
       content: s.content || '',
       image_urls: s.image_urls || [s.image_url].filter(Boolean) || [],
-      preview_urls: s.image_urls || [s.image_url].filter(Boolean) || []
+      preview_urls: s.image_urls || [s.image_url].filter(Boolean) || [],
+      video_url: s.video_url || '',
+      video_preview: s.video_url || '',
+      attachments: s.attachments || []
     })) || [{ title: '', content: '', image_urls: [] }]
   )
   const [tips, setTips] = useState<string[]>(guide.tips || [''])
@@ -88,7 +103,10 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
         title: s.title || '',
         content: s.content || '',
         image_urls: s.image_urls || [s.image_url].filter(Boolean) || [],
-        preview_urls: s.image_urls || [s.image_url].filter(Boolean) || []
+        preview_urls: s.image_urls || [s.image_url].filter(Boolean) || [],
+        video_url: s.video_url || '',
+        video_preview: s.video_url || '',
+        attachments: s.attachments || []
       })) || [{ title: '', content: '', image_urls: [] }])
       setTips(guide.tips || [''])
       setTools(guide.tools || [''])
@@ -113,14 +131,59 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
     const step = { ...newSteps[index] }
     if (field === 'image_files') {
       const files = Array.from(value as FileList)
-      const newPreviews = files.map(f => URL.createObjectURL(f))
-      step.image_files = [...(step.image_files || []), ...files]
-      step.preview_urls = [...(step.preview_urls || []), ...newPreviews]
+      const validFiles = files.filter(f => {
+        if (f.size > MAX_IMAGE_SIZE) {
+          alert(`'${f.name}' 이미지가 10MB를 초과하여 제외되었습니다.`);
+          return false;
+        }
+        return true;
+      });
+      if (validFiles.length > 0) {
+        const newPreviews = validFiles.map(f => URL.createObjectURL(f))
+        step.image_files = [...(step.image_files || []), ...validFiles]
+        step.preview_urls = [...(step.preview_urls || []), ...newPreviews]
+      }
+    } else if (field === 'video_file') {
+      const file = value as File;
+      if (file.size > MAX_VIDEO_SIZE) {
+        alert('동영상은 50MB를 초과할 수 없습니다.');
+        return;
+      }
+      step.video_file = file;
+      step.video_preview = URL.createObjectURL(file);
+    } else if (field === 'attachment_files') {
+      const files = Array.from(value as FileList)
+      const validFiles = files.filter(f => {
+        if (f.size > MAX_FILE_SIZE) {
+          alert(`'${f.name}' 파일이 20MB를 초과하여 제외되었습니다.`);
+          return false;
+        }
+        return true;
+      });
+      step.attachment_files = [...(step.attachment_files || []), ...validFiles];
     } else {
       (step as any)[field] = value
     }
     newSteps[index] = step
     setSteps(newSteps)
+  }
+
+  const removeStepVideo = (stepIdx: number) => {
+    const newSteps = [...steps];
+    newSteps[stepIdx].video_file = undefined;
+    newSteps[stepIdx].video_preview = undefined;
+    newSteps[stepIdx].video_url = undefined;
+    setSteps(newSteps);
+  }
+
+  const removeStepAttachment = (stepIdx: number, fIdx: number, isExisting: boolean = false) => {
+    const newSteps = [...steps];
+    if (isExisting) {
+      newSteps[stepIdx].attachments = newSteps[stepIdx].attachments?.filter((_, i) => i !== fIdx);
+    } else {
+      newSteps[stepIdx].attachment_files = newSteps[stepIdx].attachment_files?.filter((_, i) => i !== fIdx);
+    }
+    setSteps(newSteps);
   }
 
   const removeStepImage = (stepIdx: number, imgIdx: number) => {
@@ -167,8 +230,9 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
         final_featured_url = await uploadImage(featuredImageFile)
       }
 
-      // 2. Upload Step Images
+      // 2. Upload Step Media
       const finalSteps = await Promise.all(steps.map(async (step) => {
+        // Upload Images
         const uploadedUrls = [...step.image_urls]
         if (step.image_files && step.image_files.length > 0) {
           for (const file of step.image_files) {
@@ -176,11 +240,30 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
             uploadedUrls.push(url)
           }
         }
+
+        // Upload Video
+        let video_url = step.video_url
+        if (step.video_file) {
+          const result = await uploadFile(step.video_file, 'post-videos')
+          video_url = result.url
+        }
+
+        // Upload Attachments
+        const finalAttachments = [...(step.attachments || [])]
+        if (step.attachment_files && step.attachment_files.length > 0) {
+          for (const file of step.attachment_files) {
+            const result = await uploadFile(file, 'post-attachments')
+            finalAttachments.push({ name: result.name, url: result.url })
+          }
+        }
+
         return {
           title: step.title,
           content: step.content,
           image_urls: uploadedUrls,
-          image_url: uploadedUrls[0] || ''
+          image_url: uploadedUrls[0] || '',
+          video_url,
+          attachments: finalAttachments
         }
       }))
 
@@ -302,9 +385,63 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
                             <label className="flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-100 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors min-h-[100px]">
                               <input type="file" multiple className="hidden" accept="image/*" onChange={e => updateStep(idx, 'image_files', e.target.files)} />
                               <Plus className="w-4 h-4 text-gray-300" />
-                              <span className="text-[10px] font-black text-gray-400 mt-1">추가</span>
+                              <span className="text-[10px] font-black text-gray-400 mt-1">사진 추가</span>
                             </label>
                           </div>
+
+                          {/* Step Media Controls */}
+                          <div className="flex flex-wrap gap-4 pt-4 border-t border-gray-50">
+                            <div>
+                              <label className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-xl cursor-pointer hover:bg-purple-100 transition-colors text-xs font-bold">
+                                <input type="file" className="hidden" accept="video/*" onChange={e => { const f = e.target.files?.[0]; if (f) updateStep(idx, 'video_file', f); }} />
+                                <Film className="w-4 h-4" />
+                                동영상 {step.video_preview ? '교체' : '추가'}
+                              </label>
+                            </div>
+                            <div>
+                              <label className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-600 rounded-xl cursor-pointer hover:bg-green-100 transition-colors text-xs font-bold">
+                                <input type="file" multiple className="hidden" onChange={e => updateStep(idx, 'attachment_files', e.target.files)} />
+                                <Paperclip className="w-4 h-4" />
+                                파일 첨부
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* Step Video Preview */}
+                          {step.video_preview && (
+                            <div className="relative rounded-[2rem] overflow-hidden bg-black border border-gray-100 aspect-video">
+                              <video src={step.video_preview} controls className="w-full h-full object-contain" />
+                              <button onClick={() => removeStepVideo(idx)} className="absolute top-3 right-3 p-1.5 bg-black/50 text-white rounded-lg hover:bg-black/70 transition-colors"><X className="w-4 h-4" /></button>
+                            </div>
+                          )}
+
+                          {/* Step Attachments List */}
+                          {((step.attachments && step.attachments.length > 0) || (step.attachment_files && step.attachment_files.length > 0)) && (
+                            <div className="space-y-3">
+                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">단계별 첨부 파일</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {step.attachments?.map((file, fIdx) => (
+                                  <div key={`exist-${fIdx}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <FileText className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                      <span className="text-xs font-bold text-gray-600 truncate">{file.name}</span>
+                                    </div>
+                                    <button onClick={() => removeStepAttachment(idx, fIdx, true)} className="text-gray-300 hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>
+                                  </div>
+                                ))}
+                                {step.attachment_files?.map((file, fIdx) => (
+                                  <div key={`new-${fIdx}`} className="flex items-center justify-between p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <FileText className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                      <span className="text-xs font-bold text-gray-600 truncate">{file.name}</span>
+                                      <span className="text-[8px] px-1 bg-green-100 text-green-600 rounded">NEW</span>
+                                    </div>
+                                    <button onClick={() => removeStepAttachment(idx, fIdx, false)} className="text-gray-300 hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

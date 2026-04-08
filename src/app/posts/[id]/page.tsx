@@ -20,7 +20,10 @@ import {
   X,
   Image as ImageIcon,
   Edit3,
-  Trash2
+  Trash2,
+  Film,
+  Paperclip,
+  FileText
 } from 'lucide-react'
 import { EditGuideDialog } from '@/app/components/EditGuideDialog'
 
@@ -317,7 +320,8 @@ export default function PostDetailPage({
                     {step.title}
                  </h3>
                  <p className="text-gray-500 font-medium text-lg leading-relaxed whitespace-pre-wrap mb-10 pl-6">{step.content}</p>
-                 <div className="space-y-8">
+                  <div className="space-y-8">
+                    {/* Step Images */}
                     {Array.isArray(step.image_urls) && step.image_urls.length > 0 ? (
                       step.image_urls.map((url: string, imgIdx: number) => (
                         <div key={imgIdx} className="relative w-full rounded-[3rem] overflow-hidden border-8 border-white shadow-2xl shadow-blue-900/10 bg-gray-50">
@@ -329,7 +333,51 @@ export default function PostDetailPage({
                         <img src={step.image_url} alt={`Step ${index + 1}`} className="w-full h-auto max-h-[800px] object-contain mx-auto" />
                       </div>
                     ) : null}
-                 </div>
+
+                    {/* Step Video */}
+                    {step.video_url && (
+                      <div className="relative w-full rounded-[3rem] overflow-hidden border-8 border-white shadow-2xl shadow-blue-900/10 bg-black aspect-video">
+                        <video 
+                          src={step.video_url} 
+                          controls 
+                          className="w-full h-full object-contain"
+                          poster={step.image_url || (step.image_urls && step.image_urls[0])}
+                        />
+                      </div>
+                    )}
+
+                    {/* Step Attachments */}
+                    {Array.isArray(step.attachments) && step.attachments.length > 0 && (
+                      <div className="pt-6 border-t border-gray-50">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Paperclip className="w-5 h-5 text-gray-400" />
+                          <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest">단계 첨부 파일</h4>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {step.attachments.map((file: any, fIdx: number) => (
+                            <a 
+                              key={fIdx} 
+                              href={file.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 group hover:bg-blue-50 hover:border-blue-100 transition-all"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                  <FileText className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-black text-gray-900 truncate group-hover:text-blue-700">{file.name}</p>
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">다운로드</p>
+                                </div>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                </div>
              ))}
           </div>
