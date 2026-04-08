@@ -391,11 +391,11 @@ export default function PostDetailPage({
               </div>
               <h2 className="text-2xl font-black text-gray-900">핵심 실전 팁</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-6">
               {tips.map((tip: string, i: number) => (
-                <div key={i} className="w-fit flex items-start gap-4 p-6 bg-orange-50/30 rounded-3xl border border-orange-100/50 hover:bg-orange-50 transition-colors">
-                  <div className="w-2 h-2 rounded-full bg-orange-400 mt-2.5 shrink-0 shadow-sm" />
-                  <p className="text-gray-700 font-bold leading-relaxed">{tip}</p>
+                <div key={i} className="flex items-start gap-6 p-8 bg-orange-50/30 rounded-[2.5rem] border border-orange-100/50 hover:bg-orange-50 transition-all duration-300 shadow-sm">
+                  <div className="w-2.5 h-2.5 rounded-full bg-orange-400 mt-3 shrink-0 shadow-sm" />
+                  <p className="text-gray-700 font-bold text-lg leading-relaxed">{tip}</p>
                 </div>
               ))}
             </div>
