@@ -49,7 +49,7 @@ export default function Header() {
   return (
     <>
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/50">
-        <nav className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between gap-4">
+        <nav className="max-w-[1400px] mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-2 sm:gap-4">
           {/* 좌측: 로그인 버튼 */}
           <div className="flex-1 flex justify-start items-center">
              <LoginButton />

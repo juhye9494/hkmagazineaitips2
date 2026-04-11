@@ -17,8 +17,11 @@ import {
   ChevronRight,
   Sparkles,
   Clock,
-  ArrowRight
+  ArrowRight,
+  ChevronDown,
+  Filter
 } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
 
 const CATEGORIES = ['전체', '문서작성', '디자인', '멀티미디어', '개발', '마케팅', '데이터분석', '고객관리', '기타']
 const ITEMS_PER_PAGE = 12
@@ -29,6 +32,7 @@ export default function Home() {
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState('전체')
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
 
   const fetchPosts = async () => {
@@ -109,7 +113,7 @@ export default function Home() {
       {/* Hero Section */}
       <section className="bg-white pt-32 pb-24 px-6 text-center">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-[2.5rem] md:text-[4rem] font-black text-[#111827] leading-[1.1] mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 tracking-tight">
+          <h2 className="text-3xl sm:text-[2.5rem] md:text-[4rem] font-black text-[#111827] leading-[1.1] mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 tracking-tight break-keep">
             한경매거진앤북<br />
             <span className="text-[#0056FF] drop-shadow-sm">AI 업무 활용 TIP</span>
           </h2>
@@ -138,17 +142,60 @@ export default function Home() {
 
       {/* Categories & Listing */}
       <section className="max-w-[1400px] mx-auto px-6 py-20 pb-60">
-        {/* Category Tabs */}
-        <div className="flex flex-wrap justify-center gap-4 mb-24 animate-in fade-in duration-1000">
-          {CATEGORIES.map((cat) => (
-            <button 
-              key={cat} 
-              onClick={() => setActiveCategory(cat)}
-              className={`px-8 py-3.5 rounded-[1.25rem] text-sm font-black transition-all border-2 ${activeCategory === cat ? 'bg-[#0056FF] border-[#0056FF] text-white shadow-xl shadow-blue-500/40 scale-110 -translate-y-1' : 'bg-white border-transparent text-gray-400 hover:text-gray-900 hover:border-gray-100 shadow-sm'}`}
-            >
-              {cat}
-            </button>
-          ))}
+        {/* Category Selector */}
+        <div className="mb-16 md:mb-24">
+          {/* Mobile Dropdown */}
+          <div className="md:hidden space-y-4">
+             <button 
+               onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+               className="w-full flex items-center justify-between px-6 py-5 bg-white rounded-[1.5rem] border-2 border-gray-100 shadow-xl shadow-blue-900/5 font-black text-gray-900"
+             >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Filter className="w-4 h-4" />
+                  </div>
+                  <span>{activeCategory}</span>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${isCategoryOpen ? 'rotate-180' : ''}`} />
+             </button>
+
+             <AnimatePresence>
+               {isCategoryOpen && (
+                 <motion.div 
+                   initial={{ opacity: 0, y: -20 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   exit={{ opacity: 0, y: -20 }}
+                   className="bg-white rounded-[1.5rem] p-4 border-2 border-gray-100 shadow-xl shadow-blue-900/5 grid grid-cols-2 gap-2"
+                 >
+                   {CATEGORIES.map((cat) => (
+                     <button
+                       key={cat}
+                       onClick={() => {
+                         setActiveCategory(cat);
+                         setIsCategoryOpen(false);
+                       }}
+                       className={`px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeCategory === cat ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                     >
+                       {cat}
+                     </button>
+                   ))}
+                 </motion.div>
+               )}
+             </AnimatePresence>
+          </div>
+
+          {/* Desktop Tabs */}
+          <div className="hidden md:flex flex-wrap justify-center gap-4 animate-in fade-in duration-1000">
+            {CATEGORIES.map((cat) => (
+              <button 
+                key={cat} 
+                onClick={() => setActiveCategory(cat)}
+                className={`px-8 py-3.5 rounded-[1.25rem] text-sm font-black transition-all border-2 ${activeCategory === cat ? 'bg-[#0056FF] border-[#0056FF] text-white shadow-xl shadow-blue-500/40 scale-110 -translate-y-1' : 'bg-white border-transparent text-gray-400 hover:text-gray-900 hover:border-gray-100 shadow-sm'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loading ? (

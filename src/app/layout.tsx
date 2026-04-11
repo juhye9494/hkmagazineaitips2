@@ -19,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ko" className={`${outfit.variable} ${inter.variable}`}>
-      <body className="font-outfit bg-[#F9FAFB] text-[#111827]">
+    <html lang="ko" className={`${outfit.variable} ${inter.variable} overflow-x-hidden`}>
+      <body className="font-outfit bg-[#F9FAFB] text-[#111827] overflow-x-hidden w-full relative">
         {/* Client-side Header */}
         <Header />
 
