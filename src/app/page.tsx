@@ -34,10 +34,19 @@ export default function Home() {
   const fetchPosts = async () => {
     setLoading(true)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
       let query = supabase.from('posts').select('*').order('created_at', { ascending: false })
 
       if (activeCategory !== '전체') {
         query = query.eq('category', activeCategory)
+      }
+
+      // Filter: Show only published posts, OR drafts belonging to the current user
+      if (user) {
+        query = query.or(`status.eq.published,and(status.eq.draft,user_id.eq.${user.id})`)
+      } else {
+        query = query.eq('status', 'published')
       }
 
       const { data, error } = await query
@@ -169,11 +178,17 @@ export default function Home() {
                         <ImageIcon className="w-12 h-12 opacity-20" />
                       </div>
                     )}
-                    <div className="absolute top-5 left-5">
+                    <div className="absolute top-5 left-5 flex gap-2">
                       <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl text-[#0056FF] shadow-lg">
                         {getCategoryIcon(post.category)}
                         <span className="text-xs font-black tracking-tight">{post.category || '기타'}</span>
                       </div>
+                      {post.status === 'draft' && (
+                        <div className="flex items-center gap-2 bg-orange-500/90 backdrop-blur-md px-4 py-2 rounded-xl text-white shadow-lg">
+                          <Clock className="w-3 h-3" />
+                          <span className="text-xs font-black tracking-tight">임시저장</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

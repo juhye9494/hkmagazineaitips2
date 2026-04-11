@@ -235,9 +235,16 @@ export default function NewPostPage() {
     setLinks(newLinks)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'published' | 'draft' = 'published') => {
     e.preventDefault()
     if (!title.trim()) { alert('제목을 입력해주세요.'); return; }
+    
+    // Only validate full requirements if publishing
+    if (status === 'published') {
+      if (!description.trim()) { alert('설명을 입력해주세요.'); return; }
+      if (!category) { alert('카테고리를 선택해주세요.'); return; }
+    }
+
     setIsLoading(true)
 
     try {
@@ -301,12 +308,13 @@ export default function NewPostPage() {
         tools: tools.filter(t => t.trim()),
         links: links.filter(l => l.trim()),
         user_id: user.id,
-        content: description // fallback
+        content: description, // fallback
+        status // 'published' or 'draft'
       })
 
       if (error) throw error
 
-      alert('나만의 가이드가 등록되었습니다!')
+      alert(status === 'draft' ? '임시 저장되었습니다.' : '나만의 가이드가 등록되었습니다!')
       router.push('/')
       router.refresh()
     } catch (error: any) {
@@ -700,14 +708,25 @@ export default function NewPostPage() {
            </div>
 
            <div className="space-y-4">
-             <button
-               onClick={handleSubmit}
-               disabled={isLoading}
-               className="w-full py-6 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-black rounded-[2rem] transition-all shadow-2xl shadow-blue-500/30 flex items-center justify-center gap-4 active:scale-95 transform"
-             >
-               {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
-               {isLoading ? '나만의 가이드 저장 중...' : '가이드 공유하기'}
-             </button>
+             <div className="flex flex-col sm:flex-row gap-4">
+               <button
+                 type="button"
+                 onClick={(e) => handleSubmit(e, 'draft')}
+                 disabled={isLoading}
+                 className="flex-1 py-6 bg-white border-2 border-blue-100 text-blue-600 text-xl font-black rounded-[2rem] transition-all hover:bg-blue-50 active:scale-95 transform flex items-center justify-center gap-4"
+               >
+                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Clock className="w-6 h-6" />}
+                 임시 저장하기
+               </button>
+               <button
+                 onClick={(e) => handleSubmit(e, 'published')}
+                 disabled={isLoading}
+                 className="flex-[2] py-6 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xl font-black rounded-[2rem] transition-all shadow-2xl shadow-blue-500/30 flex items-center justify-center gap-4 active:scale-95 transform"
+               >
+                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
+                 {isLoading ? '나만의 가이드 저장 중...' : '가이드 공유하기'}
+               </button>
+             </div>
              <p className="text-gray-400 font-medium text-sm">
                공유된 가이드는 즉시 플랫폼에 노출되어 동료들에게 큰 도움이 됩니다.
              </p>

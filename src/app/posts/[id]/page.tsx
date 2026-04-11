@@ -73,6 +73,14 @@ export default function PostDetailPage({
         setError('가이드를 찾을 수 없거나 삭제되었습니다.')
         return
       }
+
+      // Draft Visibility Check: Only author can see drafts
+      if (postData.status === 'draft' && (!currentUser || currentUser.id !== postData.user_id)) {
+        setError('이 가이드는 현재 작성 중인 임시 저장 상태입니다.')
+        setPost(null)
+        return
+      }
+      
       setPost(postData)
 
       const { count: votesCount } = await supabase
@@ -266,9 +274,16 @@ export default function PostDetailPage({
                 <ImageIcon className="w-8 h-8" />
               </div>
               <div>
-                <span className="inline-block px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-black rounded-lg mb-2 uppercase tracking-widest border border-purple-100">
-                  {post.category || '기타'}
-                </span>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="inline-block px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-black rounded-lg uppercase tracking-widest border border-purple-100">
+                    {post.category || '기타'}
+                  </span>
+                  {post.status === 'draft' && (
+                    <span className="inline-block px-3 py-1 bg-orange-500 text-white text-[10px] font-black rounded-lg uppercase tracking-widest animate-pulse">
+                      임시 저장 중
+                    </span>
+                  )}
+                </div>
                 <h1 className="text-2xl md:text-4xl font-black text-gray-900 leading-tight tracking-tight">
                   {post.title}
                 </h1>

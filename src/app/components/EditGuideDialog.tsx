@@ -88,6 +88,7 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
   const [activeToolSuggestIdx, setActiveToolSuggestIdx] = useState<number | null>(null)
   const [filteredTools, setFilteredTools] = useState<string[]>([])
   
+  const [status, setStatus] = useState(guide.status || 'published')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Sync when guide changes
@@ -111,6 +112,7 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
       setTips(guide.tips || [''])
       setTools(guide.tools || [''])
       setLinks(guide.links || [''])
+      setStatus(guide.status || 'published')
     }
   }, [guide])
 
@@ -221,7 +223,16 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
     }
   }
 
-  const handleSave = async () => {
+  const handleSave = async (newStatus?: 'published' | 'draft') => {
+    const finalStatus = newStatus || status
+    
+    if (!title.trim()) { alert('제목을 입력해주세요.'); return; }
+    
+    // Validation for publishing
+    if (finalStatus === 'published') {
+      if (!description.trim()) { alert('설명을 입력해주세요.'); return; }
+    }
+
     setIsSubmitting(true)
     try {
       // 1. Upload Featured Image if changed
@@ -277,7 +288,8 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
         steps: finalSteps,
         tips: tips.filter(t => t.trim()),
         tools: tools.filter(t => t.trim()),
-        links: links.filter(l => l.trim())
+        links: links.filter(l => l.trim()),
+        status: finalStatus
       }
 
       await onSubmit(updatedPost)
@@ -510,15 +522,37 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
 
             {/* Sticky Actions */}
             <div className="px-10 py-8 bg-white border-t flex gap-4 shrink-0">
-               <button onClick={onClose} className="flex-1 h-16 rounded-[1.5rem] font-black text-gray-500 hover:bg-gray-50 transition-all border border-gray-100">닫기</button>
-               <button 
-                onClick={handleSave} 
-                disabled={isSubmitting}
-                className="flex-[2] h-16 bg-blue-600 rounded-[1.5rem] font-black text-white hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3"
-               >
-                 {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
-                 {isSubmitting ? '수정 내용 저장 중...' : '가이드 수정 완료'}
-               </button>
+               <button onClick={onClose} className="px-8 rounded-[1.5rem] font-black text-gray-500 hover:bg-gray-50 transition-all border border-gray-100">닫기</button>
+               
+               {status === 'draft' ? (
+                 <>
+                   <button 
+                     onClick={() => handleSave('draft')} 
+                     disabled={isSubmitting}
+                     className="flex-1 h-16 bg-white border-2 border-orange-500 rounded-[1.5rem] font-black text-orange-500 hover:bg-orange-50 transition-all flex items-center justify-center gap-3"
+                   >
+                     {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Clock className="w-6 h-6" />}
+                     임시 저장 유지
+                   </button>
+                   <button 
+                     onClick={() => handleSave('published')} 
+                     disabled={isSubmitting}
+                     className="flex-[2] h-16 bg-blue-600 rounded-[1.5rem] font-black text-white hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3"
+                   >
+                     {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
+                     지금 바로 공개하기
+                   </button>
+                 </>
+               ) : (
+                 <button 
+                   onClick={() => handleSave('published')} 
+                   disabled={isSubmitting}
+                   className="flex-[3] h-16 bg-blue-600 rounded-[1.5rem] font-black text-white hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3"
+                 >
+                   {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
+                   수정 내용 저장 및 공개
+                 </button>
+               )}
             </div>
           </motion.div>
         </div>
