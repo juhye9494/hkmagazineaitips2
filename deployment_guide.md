@@ -50,14 +50,24 @@ git push -u origin main
 2. **SQL Editor**에서 아래 쿼리를 실행하여 `posts` 테이블을 생성합니다:
 
 ```sql
--- 게시물 테이블 생성
+-- 게시물 테이블 생성 (최종 버전)
 create table posts (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   title text not null,
-  content text not null,
+  category text,
+  description text,
+  author_name text,
+  reading_time int8 default 1,
+  cost text,
   image_url text,
-  user_id uuid references auth.users(id) not null
+  steps jsonb default '[]'::jsonb,
+  tips text[] default '{}'::text[],
+  tools text[] default '{}'::text[],
+  links text[] default '{}'::text[],
+  user_id uuid references auth.users(id) not null,
+  content text,
+  status text default 'published'
 );
 
 -- RLS (Row Level Security) 설정
@@ -70,6 +80,13 @@ create policy "누구나 게시물을 볼 수 있습니다." on posts
 -- 인증된 사용자만 게시물을 작성할 수 있도록 허용
 create policy "인증된 사용자만 게시물을 작성할 수 있습니다." on posts
   for insert with check (auth.role() = 'authenticated');
+
+-- 본인의 게시물만 수정/삭제할 수 있도록 허용
+create policy "본인의 게시물만 수정할 수 있습니다." on posts
+  for update using (auth.uid() = user_id);
+
+create policy "본인의 게시물만 삭제할 수 있습니다." on posts
+  for delete using (auth.uid() = user_id);
 ```
 
 3. **Storage** 메뉴에서 `images`라는 이름의 새로운 공개(Public) 버킷을 생성합니다.
@@ -133,3 +150,26 @@ npm run dev
 - **보안**: `ANON_KEY`는 클라이언트 측에서 사용 가능하지만, 중요한 로직은 항상 Supabase의 **RLS(Row Level Security)**를 통해 보호해야 합니다.
 - **이미지 업로드**: Supabase Storage의 `posts` 버킷이 Public으로 설정되어 있는지 확인하세요.
 - **도메인**: Vercel 배포 후 제공되는 `.vercel.app` 도메인 외에 커스텀 도메인을 연결하려면 Vercel Settings > Domains에서 설정할 수 있습니다.
+
+---
+
+## 7. 자주 발생하는 문제 및 해결 방법 (Troubleshooting)
+
+### Q1. "등록 실패: Failed to fetch" 또는 "서버에 연결할 수 없습니다" 오류
+이 오류는 주로 **Vercel 브랜치(Preview) 환경**에서 발생합니다.
+
+**해결 방법:**
+1.  **Vercel 환경 변수 설정 확인**:
+    - Vercel 프로젝트의 **Settings > Environment Variables**로 이동합니다.
+    - `NEXT_PUBLIC_SUPABASE_URL` 및 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 항목의 **'Edit'**를 누릅니다.
+    - **'Preview'** 및 **'Development'** 체크박스가 선택되어 있는지 확인하고 저장합니다.
+    - 설정을 변경한 후에는 해당 브랜치에서 **Redeploy**를 진행해야 적용됩니다.
+2.  **네트워크 확인**:
+    - 사내 망이나 방화벽이 있는 환경에서 `supabase.co` 도메인 접속이 차단되어 있는지 확인해 보세요.
+3.  **로그인 세션**:
+    - 로그인 세션이 만료되었을 수 있으니, 로그아웃 후 다시 로그인하여 시도해 보세요.
+
+### Q2. 등록 버튼 클릭 시 아무 반응이 없거나 DB에 저장이 안 됨
+**해결 방법:**
+1.  **SQL 쿼리 다시 실행**: 이 문서의 **2-A 절**에 있는 `게시물 테이블 생성 (최종 버전)` SQL 쿼리를 Supabase의 SQL Editor에서 다시 실행해 주세요. (기존 테이블이 이미 있다면 컬럼이 부족하여 오류가 날 수 있습니다.)
+2.  **Storage 버킷 이름**: Storage 메뉴에서 `images`라는 이름의 버킷이 **Public**으로 생성되어 있는지 다시 한번 확인해 주세요.

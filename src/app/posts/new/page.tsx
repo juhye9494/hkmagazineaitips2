@@ -318,8 +318,14 @@ export default function NewPostPage() {
       router.push('/')
       router.refresh()
     } catch (error: any) {
-      console.error(error)
-      alert(`등록 실패: ${error.message}`)
+      console.error('Registration error:', error)
+      
+      let errorMessage = error.message
+      if (errorMessage === 'Failed to fetch') {
+        errorMessage = '서버에 연결할 수 없습니다. 인터넷 연결이나 Vercel 환경 변수(Supabase URL) 설정을 확인해 주세요.'
+      }
+      
+      alert(`등록 실패: ${errorMessage}`)
     } finally {
       setIsLoading(false)
     }
