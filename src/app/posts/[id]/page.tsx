@@ -308,17 +308,19 @@ export default function PostDetailPage({
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {[
                   { icon: DollarSign, label: '소요 비용', val: post.cost || '무료' },
                   { icon: Wrench, label: '작업 시간', val: post.working_time || '-' },
                   { icon: Lightbulb, label: '비용 절감', val: post.cost_saving || '-' }
                 ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 p-4 bg-gray-50/50 rounded-2xl border border-gray-100 shadow-sm">
-                    <item.icon className="w-5 h-5 text-orange-500" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">{item.label}</p>
-                      <p className="text-sm font-black text-gray-900 truncate">{item.val}</p>
+                  <div key={i} className="flex items-center gap-4 p-5 bg-gray-50/50 rounded-2xl border border-gray-100 shadow-sm">
+                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                      <item.icon className="w-5 h-5 text-orange-500" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">{item.label}</p>
+                      <p className="text-base font-black text-gray-900 leading-relaxed">{item.val}</p>
                     </div>
                   </div>
                 ))}
