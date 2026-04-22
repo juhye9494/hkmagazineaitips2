@@ -66,6 +66,8 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
   const [description, setDescription] = useState(guide.description || '')
   const [authorName, setAuthorName] = useState(guide.author_name || '')
   const [cost, setCost] = useState(guide.cost || '')
+  const [workingTime, setWorkingTime] = useState(guide.working_time || '')
+  const [costSaving, setCostSaving] = useState(guide.cost_saving || '')
   
   const [featuredPreview, setFeaturedPreview] = useState(guide.image_url || '')
   const [featuredImageFile, setFeaturedImageFile] = useState<File | null>(null)
@@ -99,6 +101,8 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
       setDescription(guide.description || '')
       setAuthorName(guide.author_name || '')
       setCost(guide.cost || '')
+      setWorkingTime(guide.working_time || '')
+      setCostSaving(guide.cost_saving || '')
       setFeaturedPreview(guide.image_url || '')
       setSteps(guide.steps?.map((s: any) => ({
         title: s.title || '',
@@ -284,6 +288,8 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
         description,
         author_name: authorName,
         cost,
+        working_time: workingTime,
+        cost_saving: costSaving,
         image_url: final_featured_url,
         steps: finalSteps,
         tips: tips.filter(t => t.trim()),
@@ -371,6 +377,18 @@ export function EditGuideDialog({ isOpen, onClose, onSubmit, guide }: EditGuideD
                     <div>
                       <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">공개된 작성자 명칭</label>
                       <input value={authorName} onChange={e => setAuthorName(e.target.value)} className="w-full h-14 px-6 bg-gray-50 border-none rounded-2xl font-bold" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">소요 비용</label>
+                      <input value={cost} onChange={e => setCost(e.target.value)} className="w-full h-14 px-6 bg-gray-50 border-none rounded-2xl font-bold" placeholder="예: 월 3만원" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">작업 시간</label>
+                      <input value={workingTime} onChange={e => setWorkingTime(e.target.value)} className="w-full h-14 px-6 bg-gray-50 border-none rounded-2xl font-bold" placeholder="예: 약 1시간" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">비용 절감</label>
+                      <input value={costSaving} onChange={e => setCostSaving(e.target.value)} className="w-full h-14 px-6 bg-gray-50 border-none rounded-2xl font-bold" placeholder="예: 연간 500만원 절감" />
                     </div>
                   </div>
                </section>

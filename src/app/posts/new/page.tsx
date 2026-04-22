@@ -67,6 +67,8 @@ export default function NewPostPage() {
   const [description, setDescription] = useState('')
   const [authorName, setAuthorName] = useState('')
   const [cost, setCost] = useState('')
+  const [workingTime, setWorkingTime] = useState('')
+  const [costSaving, setCostSaving] = useState('')
   
   // Image States
   const [featuredImage, setFeaturedImage] = useState<File | null>(null)
@@ -100,6 +102,8 @@ export default function NewPostPage() {
   useEffect(() => {
     const totalChars = title.length + 
                        description.length + 
+                       workingTime.length +
+                       costSaving.length +
                        steps.reduce((acc, step) => acc + step.title.length + step.content.length, 0)
     setReadingTime(Math.max(1, Math.ceil(totalChars / 200)))
   }, [title, description, steps])
@@ -302,6 +306,8 @@ export default function NewPostPage() {
         author_name: authorName,
         reading_time: readingTime,
         cost,
+        working_time: workingTime,
+        cost_saving: costSaving,
         image_url: featured_image_url,
         steps: finalSteps,
         tips: tips.filter(t => t.trim()),
@@ -434,12 +440,35 @@ export default function NewPostPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest mb-3">예상 비용</label>
+                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest mb-3">소요 비용</label>
                 <input
                   type="text"
                   value={cost}
                   onChange={(e) => setCost(e.target.value)}
-                  placeholder="예: 월 20달러"
+                  placeholder="예: 월 3만원"
+                  className="w-full h-14 px-6 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-blue-100 font-bold shadow-sm"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest mb-3">작업 시간</label>
+                <input
+                  type="text"
+                  value={workingTime}
+                  onChange={(e) => setWorkingTime(e.target.value)}
+                  placeholder="예: 약 1시간"
+                  className="w-full h-14 px-6 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-blue-100 font-bold shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-black text-gray-400 uppercase tracking-widest mb-3">비용 절감</label>
+                <input
+                  type="text"
+                  value={costSaving}
+                  onChange={(e) => setCostSaving(e.target.value)}
+                  placeholder="예: 연간 500만원 절감"
                   className="w-full h-14 px-6 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-blue-100 font-bold shadow-sm"
                 />
               </div>

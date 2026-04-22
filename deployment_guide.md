@@ -67,7 +67,9 @@ create table posts (
   links text[] default '{}'::text[],
   user_id uuid references auth.users(id) not null,
   content text,
-  status text default 'published'
+  status text default 'published',
+  working_time text,
+  cost_saving text
 );
 
 -- RLS (Row Level Security) 설정

@@ -292,21 +292,37 @@ export default function PostDetailPage({
             <p className="text-lg text-gray-500 font-medium mb-10 leading-relaxed max-w-2xl">
               {post.description || post.content}
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { icon: User, label: '작성자', val: post.author_name || '익명' },
-                { icon: Clock, label: '읽는 시간', val: `약 ${post.reading_time || 1}분` },
-                { icon: Tag, label: '카테고리', val: post.category || '기타' },
-                { icon: DollarSign, label: '소요 비용', val: post.cost || '무료' }
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3 p-4 bg-gray-50/50 rounded-2xl border border-gray-100">
-                  <item.icon className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">{item.label}</p>
-                    <p className="text-sm font-black text-gray-900 truncate">{item.val}</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { icon: User, label: '작성자', val: post.author_name || '익명' },
+                  { icon: Clock, label: '읽는 시간', val: `약 ${post.reading_time || 1}분` },
+                  { icon: Tag, label: '카테고리', val: post.category || '기타' },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 p-4 bg-gray-50/50 rounded-2xl border border-gray-100 shadow-sm">
+                    <item.icon className="w-5 h-5 text-blue-500" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">{item.label}</p>
+                      <p className="text-sm font-black text-gray-900 truncate">{item.val}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { icon: DollarSign, label: '소요 비용', val: post.cost || '무료' },
+                  { icon: Wrench, label: '작업 시간', val: post.working_time || '-' },
+                  { icon: Lightbulb, label: '비용 절감', val: post.cost_saving || '-' }
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 p-4 bg-gray-50/50 rounded-2xl border border-gray-100 shadow-sm">
+                    <item.icon className="w-5 h-5 text-orange-500" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">{item.label}</p>
+                      <p className="text-sm font-black text-gray-900 truncate">{item.val}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
