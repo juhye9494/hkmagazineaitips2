@@ -55,7 +55,8 @@ export default function Home() {
 
       const { data, error } = await query
       if (error) throw error
-      setPosts(data || [])
+      setPosts(data || []);
+    console.log('Fetched posts (frontend):', data);
     } catch (err) {
       console.error('데이터 조회 오류:', err)
     } finally {
