@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, Clock, User, Tag, CheckCircle, Lightbulb, Wrench, ExternalLink, FileText, Image, Video, Code, Sparkles } from 'lucide-react';
+import { ArrowLeft, Clock, User, Tag, CheckCircle, Lightbulb, Wrench, ExternalLink, FileText, Image, Video, Code, Sparkles, File, Film, Download } from 'lucide-react';
 import { methods as defaultMethods, Method } from '../data/methods';
 import { useState, useEffect } from 'react';
 import { getFirebaseGuides, updateFirebaseGuide } from '../../lib/api';
@@ -76,61 +76,38 @@ export function MethodDetail() {
     if (!method) return;
     try {
       setIsUploading(true);
-      setUploadProgress('이미지 업로드 중...');
+      setUploadProgress('가이드 수정 사항 저장 중...');
 
-      let uploadedImageUrl = '';
-      if (guideData.image && guideData.image.startsWith('data:')) {
-        try {
-          setUploadProgress('대표 이미지 업로드 중...');
-          const imageFile = dataURLtoFile(guideData.image, `thumbnail-${Date.now()}.png`);
-          uploadedImageUrl = await uploadImageToFirebase(imageFile, 'thumbnails');
-        } catch (error) {
-          throw new Error('대표 이미지 업로드에 실패했습니다.');
-        }
-      } else if (guideData.image) {
-        uploadedImageUrl = guideData.image; 
-      }
-
-      const updatedSteps = await Promise.all(
-        guideData.steps.map(async (step, stepIndex) => {
-          if (step.images && step.images.length > 0) {
-            setUploadProgress(`단계 ${stepIndex + 1} 이미지 업로드 중...`);
-            const uploadedImages = await Promise.all(
-              step.images.map(async (img, imgIndex) => {
-                if (img.startsWith('data:')) {
-                  const imageFile = dataURLtoFile(img, `step-${stepIndex}-${imgIndex}-${Date.now()}.png`);
-                  return await uploadImageToFirebase(imageFile, 'guide-steps');
-                }
-                return img;
-              })
-            );
-            return { ...step, images: uploadedImages };
-          }
-          return step;
-        })
-      );
-
-      setUploadProgress('가이드 저장 중...');
       const updatePayload: Partial<Method> = {
         title: guideData.title,
         author: guideData.author,
         tag: guideData.tag,
         description: guideData.description,
-        steps: updatedSteps,
+        steps: guideData.steps,
         tips: guideData.tips,
         tools: guideData.tools,
         references: guideData.references,
-        image: uploadedImageUrl || undefined,
+        image: guideData.image,
+        video: guideData.video,
+        attachments: guideData.attachments,
         password: guideData.password,
       };
 
       // Remove undefined values
-      const cleanPayload = Object.fromEntries(Object.entries(updatePayload).filter(([_, v]) => v !== undefined));
+      const cleanPayload = Object.fromEntries(
+        Object.entries(updatePayload).filter(([_, v]) => v !== undefined)
+      );
 
       await updateFirebaseGuide(method.id, cleanPayload);
       
       // Update local state to reflect changes instantly
-      const updatedMethod = { ...method, ...cleanPayload, icon: iconMap[guideData.tag] || Sparkles, tagColor: tagColorMap[guideData.tag] || 'bg-blue-100 text-blue-700' } as Method;
+      const updatedMethod = { 
+        ...method, 
+        ...cleanPayload, 
+        icon: iconMap[guideData.tag] || Sparkles, 
+        tagColor: tagColorMap[guideData.tag] || 'bg-blue-100 text-blue-700' 
+      } as Method;
+      
       setAllMethods(prev => prev.map(m => m.id === method.id ? updatedMethod : m));
       
       setIsUploading(false);
@@ -210,6 +187,22 @@ export function MethodDetail() {
             </div>
           </div>
 
+          {/* Main Video Section */}
+          {method.video && (
+            <div className="mb-8 rounded-xl overflow-hidden shadow-md bg-black bg-opacity-5">
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <Film className="w-4 h-4 text-purple-600" />
+                <span className="text-sm font-medium text-gray-700">대표 동영상</span>
+              </div>
+              <video 
+                src={method.video} 
+                controls 
+                className="w-full h-auto max-h-[500px] object-contain block bg-black"
+                poster={method.image}
+              />
+            </div>
+          )}
+
           {/* Meta Information */}
           <div className="flex flex-wrap gap-6 pt-6 border-t border-gray-100">
             <div className="flex items-center gap-2 text-gray-600">
@@ -267,6 +260,20 @@ export function MethodDetail() {
                         />
                       </div>
                     ))}
+                  </div>
+                )}
+                
+                {step.video && (
+                  <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 bg-black">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-100">
+                      <Film className="w-3.5 h-3.5 text-purple-600" />
+                      <span className="text-xs font-medium text-gray-700">단계 동영상</span>
+                    </div>
+                    <video 
+                      src={step.video} 
+                      controls 
+                      className="w-full h-auto max-h-[400px] object-contain block bg-black"
+                    />
                   </div>
                 )}
               </motion.div>
@@ -368,6 +375,45 @@ export function MethodDetail() {
                   <div className="ml-2 text-purple-600 group-hover:translate-x-1 transition-transform flex-shrink-0">
                     →
                   </div>
+                </motion.a>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Attachments Section */}
+        {method.attachments && method.attachments.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.48 }}
+            className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-8"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <File className="w-6 h-6 text-green-600" />
+              <h2 className="text-2xl font-bold text-gray-900">첨부 파일</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {method.attachments.map((file, index) => (
+                <motion.a
+                  key={index}
+                  href={file.url}
+                  download={file.name}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5 + index * 0.1 }}
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-green-200 hover:bg-green-50/30 transition-all group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <File className="w-5 h-5 text-green-600 flex-shrink-0" />
+                    <span className="font-medium text-gray-700 truncate group-hover:text-green-700">
+                      {file.name}
+                    </span>
+                  </div>
+                  <Download className="w-4 h-4 text-gray-400 group-hover:text-green-600 transition-colors" />
                 </motion.a>
               ))}
             </div>

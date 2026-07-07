@@ -97,7 +97,7 @@ export function MethodGrid({ methods, onUpdateMethod }: MethodGridProps) {
     }
   };
 
-  const handleEditSubmit = (updatedMethod: Method) => {
+  const handleEditSubmit = async (updatedMethod: Method) => {
     if (onUpdateMethod) {
       onUpdateMethod(updatedMethod);
     }

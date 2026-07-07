@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CategoryManager } from './CategoryManager';
 import { getFirebaseCategories } from '../../lib/api';
-import { X, Plus, Minus, Upload, FileText, Image as ImageIcon, Video, Code, Loader2 } from 'lucide-react';
-import { uploadImageToFirebase } from '../../lib/uploadImage';
+import { X, Plus, Minus, Upload, FileText, Image as ImageIcon, Video, Code, Loader2, File as FileIcon, Film } from 'lucide-react';
+import { uploadFileWithProgress } from '../../lib/uploadImage';
 import { Method } from '../data/methods';
 
 interface CreateGuideDialogProps {
@@ -20,11 +20,13 @@ export interface NewGuideData {
   author: string;
   tag: string;
   description: string;
-  steps: { title: string; content: string; images?: string[] }[];
+  steps: { title: string; content: string; images?: string[]; video?: string }[];
   tips: string[];
   tools: string[];
   references?: { title: string; url: string }[];
   image?: string;
+  video?: string;
+  attachments?: { name: string; url: string }[];
   password?: string;
 }
 
@@ -35,21 +37,39 @@ const defaultCategories = [
   { id: 'development', label: '개발', icon: Code, color: 'bg-green-100 text-green-700' },
 ];
 
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024;  // 20MB
+
 export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uploadProgress, initialData }: CreateGuideDialogProps) {
   const [categories, setCategories] = useState(defaultCategories);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [steps, setSteps] = useState<{ title: string; content: string; images?: string[] }[]>([{ title: '', content: '', images: [] }]);
+  const [steps, setSteps] = useState<{ title: string; content: string; images?: string[]; video?: string }[]>([{ title: '', content: '', images: [], video: undefined }]);
   const [tips, setTips] = useState(['']);
   const [tools, setTools] = useState(['']);
   const [references, setReferences] = useState<{ title: string; url: string }[]>([]);
   const [image, setImage] = useState<string | undefined>();
+  const [video, setVideo] = useState<string | undefined>();
+  const [attachments, setAttachments] = useState<{ name: string; url: string }[]>([]);
   const [password, setPassword] = useState('');
   const [isUploadingLocal, setIsUploadingLocal] = useState(false);
+  const [imageFile, setImageFile] = useState<File | undefined>();
+  const [videoFile, setVideoFile] = useState<File | undefined>();
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [stepImageFiles, setStepImageFiles] = useState<{ [key: number]: File[] }>({});
+  const [stepVideoFiles, setStepVideoFiles] = useState<{ [key: number]: File | undefined }>({});
+
+  const [uploadProgressValue, setUploadProgressValue] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const stepImageInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
+  const stepVideoInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -58,11 +78,13 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
         setAuthor(initialData.author);
         setSelectedCategory(initialData.tag);
         setDescription(initialData.description);
-        setSteps(initialData.steps && initialData.steps.length > 0 ? [...initialData.steps] : [{ title: '', content: '', images: [] }]);
+        setSteps(initialData.steps && initialData.steps.length > 0 ? [...initialData.steps] : [{ title: '', content: '', images: [], video: undefined }]);
         setTips(initialData.tips && initialData.tips.length > 0 ? [...initialData.tips] : ['']);
         setTools(initialData.tools && initialData.tools.length > 0 ? [...initialData.tools] : ['']);
         setReferences(initialData.references && initialData.references.length > 0 ? [...initialData.references] : []);
         setImage(initialData.image);
+        setVideo(initialData.video);
+        setAttachments(initialData.attachments || []);
         setPassword(initialData.password || '');
       } else {
         // Reset form completely if not editing
@@ -70,11 +92,13 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
         setAuthor('');
         setSelectedCategory('');
         setDescription('');
-        setSteps([{ title: '', content: '', images: [] }]);
+        setSteps([{ title: '', content: '', images: [], video: undefined }]);
         setTips(['']);
         setTools(['']);
         setReferences([]);
         setImage(undefined);
+        setVideo(undefined);
+        setAttachments([]);
         setPassword('');
       }
 
@@ -107,45 +131,116 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      if (file.size > MAX_IMAGE_SIZE) {
+        alert('이미지 파일 크기는 10MB를 초과할 수 없습니다.');
+        return;
+      }
+      setImageFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setImage(previewUrl);
     }
+  };
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > MAX_VIDEO_SIZE) {
+        alert('동영상 파일 크기는 50MB를 초과할 수 없습니다.');
+        return;
+      }
+      setVideoFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setVideo(previewUrl);
+    }
+  };
+
+  const handleAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files).filter(file => {
+        if (file.size > MAX_FILE_SIZE) {
+          alert(`'${file.name}' 파일이 너무 큽니다. 첨부 파일은 20MB를 초과할 수 없습니다.`);
+          return false;
+        }
+        return true;
+      });
+      
+      setAttachmentFiles(prev => [...prev, ...newFiles]);
+      setAttachments(prev => [
+        ...prev, 
+        ...newFiles.map(f => ({ name: f.name, url: URL.createObjectURL(f) }))
+      ]);
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleStepImageUpload = (stepIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const newImages: string[] = [];
-      let filesProcessed = 0;
-
-      Array.from(files).forEach((file) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          newImages.push(reader.result as string);
-          filesProcessed++;
-
-          if (filesProcessed === files.length) {
-            const newSteps = [...steps];
-            newSteps[stepIndex].images = [...(newSteps[stepIndex].images || []), ...newImages];
-            setSteps(newSteps);
-          }
-        };
-        reader.readAsDataURL(file);
+      const validFiles = Array.from(files).filter(file => {
+        if (file.size > MAX_IMAGE_SIZE) {
+          alert(`'${file.name}' 이미지가 10MB를 초과하여 제외되었습니다.`);
+          return false;
+        }
+        return true;
       });
+
+      if (validFiles.length === 0) return;
+
+      setStepImageFiles(prev => ({
+        ...prev,
+        [stepIndex]: [...(prev[stepIndex] || []), ...validFiles]
+      }));
+
+      const newPreviews = validFiles.map(f => URL.createObjectURL(f));
+      const newSteps = [...steps];
+      newSteps[stepIndex].images = [...(newSteps[stepIndex].images || []), ...newPreviews];
+      setSteps(newSteps);
     }
   };
 
+  const handleStepVideoUpload = (stepIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > MAX_VIDEO_SIZE) {
+        alert('동영상 파일 크기는 50MB를 초과할 수 없습니다.');
+        return;
+      }
+      setStepVideoFiles(prev => ({ ...prev, [stepIndex]: file }));
+      const previewUrl = URL.createObjectURL(file);
+      const newSteps = [...steps];
+      newSteps[stepIndex].video = previewUrl;
+      setSteps(newSteps);
+    }
+  };
+
+  const removeStepVideo = (stepIndex: number) => {
+    setStepVideoFiles(prev => {
+      const next = { ...prev };
+      delete next[stepIndex];
+      return next;
+    });
+    const newSteps = [...steps];
+    newSteps[stepIndex].video = undefined;
+    setSteps(newSteps);
+  };
+
   const removeStepImage = (stepIndex: number, imageIndex: number) => {
+    setStepImageFiles(prev => ({
+      ...prev,
+      [stepIndex]: prev[stepIndex]?.filter((_, i) => i !== imageIndex) || []
+    }));
     const newSteps = [...steps];
     newSteps[stepIndex].images = newSteps[stepIndex].images?.filter((_, i) => i !== imageIndex);
     setSteps(newSteps);
   };
 
   const addStep = () => {
-    setSteps([...steps, { title: '', content: '', images: [] }]);
+    setSteps([...steps, { title: '', content: '', images: [], video: undefined }]);
   };
 
   const removeStep = (index: number) => {
@@ -208,30 +303,89 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
     setReferences(newReferences);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title || !author || !selectedCategory || !description || !image) {
+    if (!title || !author || !selectedCategory || !description || (!image && !imageFile)) {
       alert('대표 이미지를 포함한 모든 필수 항목을 입력해주세요.');
       return;
     }
 
-    const guideData: NewGuideData = {
-      title,
-      author,
-      tag: selectedCategory,
-      description,
-      steps: steps.filter(s => s.title && s.content),
-      tips: tips.filter(t => t.trim()),
-      tools: tools.filter(t => t.trim()),
-      references: references.filter(r => r.title && r.url),
-      image,
-      password,
-    };
+    try {
+      setUploadProgressValue(0);
+      setUploadStatus('준비 중...');
+      
+      // Upload images and files to Firebase
+      let finalImageUrl = image || '';
+      if (imageFile) {
+        setUploadStatus('대표 이미지 업로드 중...');
+        finalImageUrl = await uploadFileWithProgress(imageFile, 'guides', (p) => setUploadProgressValue(p));
+      }
 
-    onSubmit(guideData);
-    resetForm();
-    onClose();
+      let finalVideoUrl = video;
+      if (videoFile) {
+        setUploadStatus('대표 동영상 업로드 중...');
+        finalVideoUrl = await uploadFileWithProgress(videoFile, 'videos', (p) => setUploadProgressValue(p));
+      }
+
+      const finalAttachments = [];
+      for (let i = 0; i < attachmentFiles.length; i++) {
+        setUploadStatus(`첨부 파일 업로드 중 (${i + 1}/${attachmentFiles.length})...`);
+        const url = await uploadFileWithProgress(attachmentFiles[i], 'attachments', (p) => setUploadProgressValue(p));
+        finalAttachments.push({ name: attachmentFiles[i].name, url });
+      }
+
+      const finalSteps = [];
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const stepFiles = stepImageFiles[i] || [];
+        const stepVideoFile = stepVideoFiles[i];
+        
+        const uploadedStepImages = [];
+        for (let j = 0; j < stepFiles.length; j++) {
+          setUploadStatus(`${i + 1}단계 이미지 업로드 중 (${j + 1}/${stepFiles.length})...`);
+          const url = await uploadFileWithProgress(stepFiles[j], 'steps', (p) => setUploadProgressValue(p));
+          uploadedStepImages.push(url);
+        }
+
+        let uploadedStepVideo = step.video;
+        if (stepVideoFile) {
+          setUploadStatus(`${i + 1}단계 동영상 업로드 중...`);
+          uploadedStepVideo = await uploadFileWithProgress(stepVideoFile, 'steps', (p) => setUploadProgressValue(p));
+        }
+
+        finalSteps.push({
+          ...step,
+          images: uploadedStepImages.length > 0 ? uploadedStepImages : step.images,
+          video: uploadedStepVideo
+        });
+      }
+
+      const guideData: NewGuideData = {
+        title,
+        author,
+        tag: selectedCategory,
+        description,
+        steps: finalSteps.filter(s => s.title && s.content),
+        tips: tips.filter(t => t.trim()),
+        tools: tools.filter(t => t.trim()),
+        references: references.filter(r => r.title && r.url),
+        image: finalImageUrl,
+        video: finalVideoUrl,
+        attachments: finalAttachments,
+        password,
+      };
+
+      onSubmit(guideData);
+      resetForm();
+      onClose();
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('파일 업로드 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    } finally {
+      setUploadProgressValue(0);
+      setUploadStatus('');
+    }
   };
 
   const resetForm = () => {
@@ -239,12 +393,19 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
     setAuthor('');
     setSelectedCategory('');
     setDescription('');
-    setSteps([{ title: '', content: '', images: [] }]);
+    setSteps([{ title: '', content: '', images: [], video: undefined }]);
     setTips(['']);
     setTools(['']);
     setReferences([]);
     setImage(undefined);
+    setVideo(undefined);
+    setAttachments([]);
     setPassword('');
+    setImageFile(undefined);
+    setVideoFile(undefined);
+    setAttachmentFiles([]);
+    setStepImageFiles({});
+    setStepVideoFiles({});
   };
 
   return (
@@ -271,18 +432,18 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
                   <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
                   <div className="text-center">
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      이미지 업로드 중...
+                      {uploadStatus || '파일 업로드 중...'}
                     </h3>
-                    <p className="text-sm text-gray-600">
-                      {uploadProgress || '잠시만 기다려주세요'}
+                    <p className="text-sm text-gray-600 mb-1">
+                      {uploadProgressValue}% 완료
                     </p>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                     <motion.div
                       className="h-full bg-blue-600"
                       initial={{ width: '0%' }}
-                      animate={{ width: '100%' }}
-                      transition={{ duration: 2, repeat: Infinity }}
+                      animate={{ width: `${uploadProgressValue}%` }}
+                      transition={{ duration: 0.3 }}
                     />
                   </div>
                 </div>
@@ -398,7 +559,7 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
                           onClick={() => fileInputRef.current?.click()}
                           className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-blue-600"
                         >
-                          <Upload className="w-5 h-5" />
+                          <FileIcon className="w-5 h-5" />
                           이미지 업로드
                         </button>
                         {image && (
@@ -411,6 +572,83 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
                             >
                               <X className="w-4 h-4" />
                             </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        대표 동영상 (선택)
+                      </label>
+                      <div className="space-y-3">
+                        <input
+                          ref={videoInputRef}
+                          type="file"
+                          accept="video/*"
+                          onChange={handleVideoUpload}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => videoInputRef.current?.click()}
+                          className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-purple-600"
+                        >
+                          <Film className="w-5 h-5" />
+                          동영상 업로드
+                        </button>
+                        {video && (
+                          <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-black">
+                            <video src={video} controls className="w-full h-48 object-contain" />
+                            <button
+                              type="button"
+                              onClick={() => setVideo(undefined)}
+                              className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-lg p-2 transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        파일 첨부 (선택)
+                      </label>
+                      <div className="space-y-3">
+                        <input
+                          ref={attachmentInputRef}
+                          type="file"
+                          multiple
+                          onChange={handleAttachmentUpload}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => attachmentInputRef.current?.click()}
+                          className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-green-600"
+                        >
+                          <FileIcon className="w-5 h-5" />
+                          파일 업로드
+                        </button>
+                        {attachments.length > 0 && (
+                          <div className="space-y-2">
+                            {attachments.map((file, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <FileIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeAttachment(idx)}
+                                  className="text-gray-400 hover:text-red-500 transition-colors"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -484,45 +722,82 @@ export function CreateGuideDialog({ isOpen, onClose, onSubmit, isUploading, uplo
                             placeholder="단계별 상세 설명을 작성해주세요"
                           />
                           
-                          {/* Step Images */}
-                          <div className="space-y-2">
-                            <label className="block text-xs font-medium text-gray-600">
-                              단계별 이미지 (선택, 여러 장 가능)
-                            </label>
-                            
-                            {step.images && step.images.length > 0 && (
-                              <div className="grid grid-cols-2 gap-2">
-                                {step.images.map((img, imgIndex) => (
-                                  <div key={imgIndex} className="relative rounded-lg overflow-hidden border border-gray-200 group">
-                                    <img src={img} alt={`Step ${index + 1} Image ${imgIndex + 1}`} className="w-full h-32 object-cover" />
-                                    <button
-                                      type="button"
-                                      onClick={() => removeStepImage(index, imgIndex)}
-                                      className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-lg p-1.5 transition-colors opacity-0 group-hover:opacity-100"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            
-                            <input
-                              ref={(el) => { stepImageInputRefs.current[index] = el; }}
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              onChange={(e) => handleStepImageUpload(index, e)}
-                              className="hidden"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => stepImageInputRefs.current[index]?.click()}
-                              className="w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-blue-600 text-sm"
-                            >
-                              <Upload className="w-4 h-4" />
-                              {step.images && step.images.length > 0 ? '이미지 더 추가' : '이미지 업로드'}
-                            </button>
+                          {/* Step Media */}
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-2">
+                                단계별 이미지 (선택, 여러 장 가능)
+                              </label>
+                              
+                              {step.images && step.images.length > 0 && (
+                                <div className="grid grid-cols-2 gap-2 mb-2">
+                                  {step.images.map((img, imgIndex) => (
+                                    <div key={imgIndex} className="relative rounded-lg overflow-hidden border border-gray-200 group">
+                                      <img src={img} alt={`Step ${index + 1} Image ${imgIndex + 1}`} className="w-full h-32 object-cover" />
+                                      <button
+                                        type="button"
+                                        onClick={() => removeStepImage(index, imgIndex)}
+                                        className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-lg p-1.5 transition-colors opacity-0 group-hover:opacity-100"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              <input
+                                ref={(el) => { stepImageInputRefs.current[index] = el; }}
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => handleStepImageUpload(index, e)}
+                                className="hidden"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => stepImageInputRefs.current[index]?.click()}
+                                className="w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-blue-600 text-sm"
+                              >
+                                <ImageIcon className="w-4 h-4" />
+                                {step.images && step.images.length > 0 ? '이미지 더 추가' : '이미지 업로드'}
+                              </button>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-2">
+                                단계별 동영상 (선택)
+                              </label>
+                              
+                              {step.video && (
+                                <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-black mb-2">
+                                  <video src={step.video} controls className="w-full h-32 object-contain" />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeStepVideo(index)}
+                                    className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-lg p-1.5 transition-colors"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
+                              
+                              <input
+                                ref={(el) => { stepVideoInputRefs.current[index] = el; }}
+                                type="file"
+                                accept="video/*"
+                                onChange={(e) => handleStepVideoUpload(index, e)}
+                                className="hidden"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => stepVideoInputRefs.current[index]?.click()}
+                                className="w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-purple-600 text-sm"
+                              >
+                                <Film className="w-4 h-4" />
+                                {step.video ? '동영상 교체' : '동영상 업로드'}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
