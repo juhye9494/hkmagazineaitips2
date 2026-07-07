@@ -53,7 +53,53 @@ export function Home() {
   const handleCreateGuide = async (guideData: NewGuideData) => {
     try {
       setIsUploading(true);
-      setUploadProgress('가이드 데이터 저장 중...');
+      setUploadProgress('이미지 업로드 중...');
+
+      // 1. 대표 이미지 업로드 (필수)
+      let uploadedImageUrl = '';
+      if (guideData.image && guideData.image.startsWith('data:')) {
+        try {
+          setUploadProgress('대표 이미지 업로드 중...');
+          const imageFile = dataURLtoFile(guideData.image, `thumbnail-${Date.now()}.png`);
+          uploadedImageUrl = await uploadImageToFirebase(imageFile, 'thumbnails');
+        } catch (error) {
+          console.error('대표 이미지 업로드 실패:', error);
+          throw new Error('대표 이미지 업로드에 실패했습니다. 유효한 이미지인지 확인해주세요.');
+        }
+      } else if (guideData.image) {
+        uploadedImageUrl = guideData.image; // 이미 Storage URL인 경우
+      }
+
+      if (!uploadedImageUrl) {
+        throw new Error('대표 이미지 업로드 URL을 생성하지 못했습니다.');
+      }
+
+      // 2. 단계별 이미지 업로드
+      const updatedSteps = await Promise.all(
+        guideData.steps.map(async (step, stepIndex) => {
+          if (step.images && step.images.length > 0) {
+            setUploadProgress(`단계 ${stepIndex + 1} 이미지 업로드 중...`);
+            const uploadedImages = await Promise.all(
+              step.images.map(async (img, imgIndex) => {
+                if (img.startsWith('data:')) {
+                  try {
+                    const imageFile = dataURLtoFile(img, `step-${stepIndex}-${imgIndex}-${Date.now()}.png`);
+                    return await uploadImageToFirebase(imageFile, 'guide-steps');
+                  } catch (error) {
+                    console.error(`단계 ${stepIndex + 1} 이미지 ${imgIndex + 1} 업로드 실패:`, error);
+                    throw new Error(`단계 ${stepIndex + 1}의 이미지를 업로드하는 데 실패했습니다.`);
+                  }
+                }
+                return img;
+              })
+            );
+            return { ...step, images: uploadedImages };
+          }
+          return step;
+        })
+      );
+
+      setUploadProgress('가이드 저장 중...');
 
       const newMethod: Method = {
         id: `user-${Date.now()}`,
@@ -63,16 +109,15 @@ export function Home() {
         icon: iconMap[guideData.tag] || Sparkles,
         tagColor: tagColorMap[guideData.tag] || 'bg-blue-100 text-blue-700',
         description: guideData.description,
-        steps: guideData.steps || [],
-        tips: guideData.tips || [],
-        tools: guideData.tools || [],
-        references: guideData.references || [],
-        image: guideData.image || '',
-        video: guideData.video || undefined,
-        attachments: guideData.attachments || [],
+        steps: updatedSteps,
+        tips: guideData.tips,
+        tools: guideData.tools,
+        references: guideData.references,
+        image: uploadedImageUrl,
         password: guideData.password,
       };
 
+      // Save to Firebase
       // Firestore에 React 컴포넌트인 icon, tagColor 등을 넘길 수 없으므로 제외합니다.
       const { id: _, icon: __, tagColor: ___, ...guideDataToSave } = newMethod as any;
       const newId = await createFirebaseGuide(guideDataToSave);
@@ -84,6 +129,7 @@ export function Home() {
       setIsUploading(false);
       setUploadProgress('');
       
+      // Show success message
       alert('가이드가 성공적으로 공유되었습니다! 🎉');
     } catch (error) {
       console.error('가이드 생성 실패:', error);
